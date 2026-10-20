@@ -298,8 +298,16 @@ function flameNum(it, lines = it.flame) {
   return sc;
 }
 const flameBetter = (it, a, b) => (TPL[it.id].slot === '무기' ? flameNum(it, a) < flameNum(it, b) : flameNum(it, a) > flameNum(it, b));
+// 추옵 스탯 직접 고르기: 고를 수 있는 항목
+const FCOND = [['STR', 'STR'], ['DEX', 'DEX'], ['INT', 'INT'], ['LUK', 'LUK'], ['HP', '최대 HP'], ['ALL%', '올스탯%'],
+  ['ATT', '공격력'], ['MATT', '마력'], ['BOSS%', '보스 데미지%'], ['DMG%', '데미지%'], ['LVR', '착용 레벨 감소']];
+// 그 스탯의 합 (STR 등은 STR이 들어간 이중 스탯 줄도 포함)
+function flameStatSum(lines, k) {
+  return lines.reduce((a, f) => a + (f.k === k || (STATS4.includes(k) && f.k.includes('+') && f.k.split('+').includes(k)) ? f.val : 0), 0);
+}
 function flameGoalMet(it, lines) {
   const g = M.fgoal, n = flameNum(it, lines);
+  if (g.mode === 'custom') return g.conds.length > 0 && g.conds.every(c => flameStatSum(lines, c.k) >= c.min);
   if (TPL[it.id].slot === '무기') {
     const boss = lines.filter(f => f.k === 'BOSS%').reduce((a, f) => a + f.val, 0);
     return n <= g.wtier && boss >= g.boss;
@@ -672,7 +680,7 @@ function invHtml() {
 function openModal(uid) {
   const t = TPL[findItem(uid).id];
   const tabs = modalTabs(t);
-  M = { fgoal: (M && M.fgoal) || { score: 150, wtier: 2, boss: 0, speed: 15 }, chaosGoal: (M && M.chaosGoal) || { att: 6, main: 6 }, chaosSpeed: M ? M.chaosSpeed : 20, useRet: M ? M.useRet : true, goal: (M && M.goal) || {}, sfSpeed: M ? M.sfSpeed : 20, auto: null, sfAuto: null, uid, tab: tabs[0] ? tabs[0][0] : null, pending: null, msg: '', msgCls: '',
+  M = { fgoal: (M && M.fgoal) || { score: 150, wtier: 2, boss: 0, speed: 15, mode: 'basic', conds: [{ k: cls.main, min: 100 }] }, chaosGoal: (M && M.chaosGoal) || { att: 6, main: 6 }, chaosSpeed: M ? M.chaosSpeed : 20, useRet: M ? M.useRet : true, goal: (M && M.goal) || {}, sfSpeed: M ? M.sfSpeed : 20, auto: null, sfAuto: null, uid, tab: tabs[0] ? tabs[0][0] : null, pending: null, msg: '', msgCls: '',
     o: (M && M.o) || { catch: true, prevent: false, sunday: false }, target: Math.min(22, maxStar(t.level)) };
   renderModal();
 }
@@ -1160,7 +1168,16 @@ function tabBody(it, t) {
     </div>${pend}
     <div class="auto-cube">
       <div class="pot-title">자동 추옵 <span class="muted small">목표에 도달하면 멈춰요</span></div>
-      <div class="goal">${isW
+      <div class="goal">
+        <select data-fmode="1"><option value="basic" ${g.mode !== 'custom' ? 'selected' : ''}>${isW ? 'N추 / 보공' : '환산 급수'}</option><option value="custom" ${g.mode === 'custom' ? 'selected' : ''}>스탯 직접 고르기</option></select>
+      ${g.mode === 'custom'
+        ? `<div class="fconds">${g.conds.map((c, i) => `<span class="fcond">
+            <select data-fcond="k" data-i="${i}">${FCOND.map(([k, n]) => `<option value="${k}" ${c.k === k ? 'selected' : ''}>${n}</option>`).join('')}</select>
+            ≥ <input type="number" min="0" data-fcond="min" data-i="${i}" value="${c.min}">
+            <button class="sm link" data-act="fCondDel" data-i="${i}">✕</button></span>`).join('')}
+            ${g.conds.length < 4 ? '<button class="sm" data-act="fCondAdd">+ 조건 추가</button>' : ''}
+            <span class="muted small">조건을 모두 만족하면 멈춰요 (STR 등은 이중 스탯 포함)</span></div>`
+        : isW
         ? `<span>${ATT_NAME()} <input type="number" min="1" max="7" data-fgoal="wtier" value="${g.wtier}">추 이상</span>
            <span>보스 데미지 ≥ <input type="number" min="0" data-fgoal="boss" value="${g.boss}">%</span>`
         : `<span>환산 ≥ <input type="number" min="0" data-fgoal="score" value="${g.score}">급</span>`}
@@ -1258,6 +1275,8 @@ document.addEventListener('click', e => {
       removeCustom(b.dataset.id); renderMain(); break;
     case 'keepBefore': M.pending = null; setMsg('기존 옵션을 유지했어요.'); refresh(); break;
     case 'takeAfter': it[M.pendKind || 'pot'] = M.pending; M.pending = null; setMsg('새 옵션을 적용했어요.', 'ok'); refresh(); break;
+    case 'fCondAdd': M.fgoal.conds.push({ k: 'ALL%', min: 6 }); renderModal(); break;
+    case 'fCondDel': M.fgoal.conds.splice(+b.dataset.i, 1); renderModal(); break;
     case 'fAuto': startFlameAuto(b.dataset.flame); break;
     case 'fStop': stopFlameAuto(); break;
     case 'fKeep': M.fpend = null; setMsg('기존 추옵을 유지했어요.'); refresh(); break;
@@ -1288,6 +1307,12 @@ document.addEventListener('input', e => {
 });
 document.addEventListener('change', e => {
   if (e.target.dataset && e.target.dataset.scroll && M) { M.scroll = e.target.dataset.scroll; M.lastScroll = null; M.chaosLast = null; renderModal(); return; }
+  if (e.target.dataset && e.target.dataset.fmode && M) { M.fgoal.mode = e.target.value; renderModal(); return; }
+  if (e.target.dataset && e.target.dataset.fcond && M) {
+    const c = M.fgoal.conds[+e.target.dataset.i];
+    if (e.target.dataset.fcond === 'k') c.k = e.target.value; else c.min = +e.target.value;
+    return;
+  }
   if (e.target.dataset && e.target.dataset.fgoal && M) { M.fgoal[e.target.dataset.fgoal] = +e.target.value; return; }
   if (e.target.id === 'useRet' && M) { M.useRet = e.target.checked; return; }
   if (e.target.id === 'chaosSpeed' && M) { M.chaosSpeed = +e.target.value; return; }

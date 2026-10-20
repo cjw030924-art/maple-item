@@ -214,3 +214,8 @@ button.link { background: none; border: none; color: #ff7b7b; padding: 0 4px; fo
 .rk-power { color: #ffd76a; white-space: nowrap; }
 
 button.white { background: #e8e8f0; color: #1a1a22; }
+
+.fconds { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+.fcond { display: flex; align-items: center; gap: 6px; }
+.fcond select, .fcond input, .goal select[data-fmode] { background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 5px 6px; font: inherit; font-size: 13px; }
+.fcond input { width: 70px; }
