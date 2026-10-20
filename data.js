@@ -120,3 +120,6 @@ ITEMS.find(t => t.id === '광휘-오만의 원죄').icon = 'icons/radiance-5.png
 ITEMS.find(t => t.id === '광휘-굶주리는 핏빛 원혼').icon = 'icons/radiance-6.png';
 ITEMS.find(t => t.id === '광휘-굶주리는 핏빛 원혼').tuc = 5;
 ITEMS.filter(t => t.set === '미트라').forEach(t => (t.icon = 'icons/mitra.png'));
+
+// 데스티니 무기 (22성 고정 → 25성까지, 15% 주문서 완료 상태)
+ITEMS.push(...DESTINY_DATA);

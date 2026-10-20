@@ -93,6 +93,7 @@ const POT_CAT = { 무기: 'weapon', 보조: 'weapon', 엠블렘: 'weapon', 장�
 const SF_OK = s => !['보조', '엠블렘', '포켓', '뱃지', '훈장'].includes(s);
 const FLAME_OK = s => ['무기', '모자', '상의', '하의', '한벌옷', '신발', '장갑', '망토', '벨트', '펜던트', '귀고리', '얼굴', '눈', '포켓'].includes(s);
 const maxStar = L => (L < 95 ? 5 : L < 108 ? 8 : L < 118 ? 10 : L < 128 ? 15 : L < 138 ? 20 : 30);
+const maxStarT = t => (t.destiny ? 25 : maxStar(t.level));
 const lvIdx = L => (L < 140 ? 0 : L < 150 ? 1 : L < 160 ? 2 : L < 200 ? 3 : L < 250 ? 4 : 5);
 
 const LAYOUT = [
@@ -165,7 +166,7 @@ function sfBonus(t, star, baseAtt = tAtt(t)) {
 }
 function doStar(it, o) {
   const t = TPL[it.id], s = it.star;
-  if (s >= maxStar(t.level)) return null;
+  if (s >= maxStarT(t)) return null;
   S.log.meso += sfPrice(t, s, o);
   S.log.sf++;
   const { su, bo } = sfRates(s, o);
@@ -355,6 +356,7 @@ function itemStats(it) {
   const r = { main: tMain(t) + sf.stat + fl.main + sc.s[cls.main], sub: tSub(t) + sf.stat + fl.sub + sc.s[cls.sub],
     att: tAtt(t) + sf.att + fl.att + (cls.main === 'INT' ? sc.mad : sc.pad),
     mainPct: fl.all, attPct: 0, boss: fl.boss + (t.boss || 0), dmg: fl.dmg, cd: 0, ied: [] };
+  if (t.ied) r.ied.push(t.ied);
   [it.pot, it.add].forEach(p => p && p.lines.forEach(l => {
     if (l.k === cls.main + '%' || l.k === 'ALL%') r.mainPct += l.val;
     else if (l.k === A + '%') r.attPct += l.val;
@@ -474,6 +476,11 @@ function symUp(s) {
 function createItem(id) {
   const t = TPL[id];
   const it = { uid: S.uid++, id, star: 0 };
+  if (t.destiny) {
+    // 22성 + 15% 주문의 흔적 8장 완료 상태로 지급
+    it.star = 22;
+    const sc = scOf(it); sc.up = 8; sc.s[cls.main] += 32; sc[cls.main === 'INT' ? 'mad' : 'pad'] += 72;
+  }
   const cat = POT_CAT[t.slot];
   if (cat) {
     it.pot = { grade: 0, lines: rollLines(cat, 0, [1, 0.1, 0.01], false, t.level) };
@@ -682,7 +689,7 @@ function openModal(uid) {
   const t = TPL[findItem(uid).id];
   const tabs = modalTabs(t);
   M = { fgoal: (M && M.fgoal) || { score: 150, wtier: 2, boss: 0, speed: 15, mode: 'basic', conds: [{ k: cls.main, min: 100 }] }, chaosGoal: (M && M.chaosGoal) || { att: 6, main: 6 }, chaosSpeed: M ? M.chaosSpeed : 20, useRet: M ? M.useRet : true, goal: (M && M.goal) || {}, sfSpeed: M ? M.sfSpeed : 20, auto: null, sfAuto: null, uid, tab: tabs[0] ? tabs[0][0] : null, pending: null, msg: '', msgCls: '',
-    o: (M && M.o) || { catch: true, prevent: false, sunday: false }, target: Math.min(22, maxStar(t.level)) };
+    o: (M && M.o) || { catch: true, prevent: false, sunday: false }, target: Math.min(22, maxStarT(t)) };
   renderModal();
 }
 function modalTabs(t) {
@@ -694,7 +701,7 @@ function modalTabs(t) {
   return r;
 }
 function starsHtml(it, t) {
-  const max = maxStar(t.level);
+  const max = maxStarT(t);
   let h = '';
   for (let i = 0; i < max; i++) {
     if (i && i % 5 === 0) h += '<i class="gap"></i>';
@@ -720,9 +727,10 @@ function tooltipRows(it) {
     const fl = flame(fk), scr = sc[key];
     if (base + sf + fl + scr) rows.push({ n, base, sf, fl, scr });
   });
-  [['BOSS%', '보스 몬스터 공격 시 데미지'], ['DMG%', '데미지']].forEach(([k, n]) => {
-    const fl = flame(k); if (fl) rows.push({ n, base: 0, sf: 0, fl, u: '%' });
+  [['BOSS%', '보스 몬스터 공격 시 데미지', t.boss || 0], ['DMG%', '데미지', 0]].forEach(([k, n, base]) => {
+    const fl = flame(k); if (fl || base) rows.push({ n, base, sf: 0, fl, u: '%' });
   });
+  if (t.ied) rows.push({ n: '몬스터 방어율 무시', base: t.ied, sf: 0, fl: 0, u: '%' });
   return rows;
 }
 const GRADE_LETTER = ['R', 'E', 'U', 'L'];
@@ -947,7 +955,7 @@ function sfLiveHtml(A) {
 }
 function startSfAuto() {
   const it = findItem(M.uid), t = TPL[it.id];
-  const target = Math.min(+$('#target').value || 0, maxStar(t.level));
+  const target = Math.min(+$('#target').value || 0, maxStarT(t));
   M.target = target;
   if (it.star >= target) { setMsg('이미 목표 스타포스예요.', 'ok'); renderModal(); return; }
   M.msg = '';
@@ -1106,7 +1114,7 @@ function tabBody(it, t) {
       <p class="muted small">실패하면 업그레이드 횟수가 1 줄어요. 방어구는 4번 성공할 때마다 ${ATT_NAME()} +1 보너스. 수치는 120제 이상 기준 근사치예요.</p>`;
   }
   if (M.tab === 'sf') {
-    const s = it.star, max = maxStar(t.level);
+    const s = it.star, max = maxStarT(t);
     if (s >= max) return `<p>최대 스타포스(${max}성)에 도달했어요! 🎉</p>`;
     const r = sfRates(s, M.o), cost = sfPrice(t, s, M.o);
     const chk = (k, n) => `<label class="chk"><input type="checkbox" data-opt="${k}" ${M.o[k] ? 'checked' : ''}> ${n}</label>`;
