@@ -177,8 +177,9 @@ function doStar(it, o) {
 // ===== 잠재능력 =====
 const CUBES = {
   red: { name: '레드 큐브', kind: 'pot', up: [0.06, 0.018, 0.003], prime: [1, 0.1, 0.01] },
-  black: { name: '블랙 큐브', kind: 'pot', up: [0.15, 0.035, 0.012], prime: [1, 0.2, 0.05] },
+  black: { name: '블랙 큐브', kind: 'pot', choose: true, up: [0.15, 0.035, 0.012], prime: [1, 0.2, 0.05] },
   add: { name: '에디셔널 큐브', kind: 'add', up: [0.047619, 0.019608, 0.004975], prime: [1, 0.05, 0.01] },
+  white: { name: '화이트 에디셔널 큐브', kind: 'add', up: [0.047619, 0.019608, 0.004975], prime: [1, 0.05, 0.01], choose: true },
 };
 function potPool(cat, edi) {
   const p = [];
@@ -243,7 +244,7 @@ function cubeRoll(it, type) {
   const C = CUBES[type], cat = POT_CAT[TPL[it.id].slot];
   let g = it[C.kind].grade;
   if (g < 3 && rnd() < C.up[g]) g++;
-  S.log[type]++;
+  S.log[type] = (S.log[type] || 0) + 1;
   return { grade: g, lines: rollLines(cat, g, C.prime, C.kind === 'add', TPL[it.id].level) };
 }
 const lineText = l => (l.k === 'CDR' ? `${l.n} : -${l.val}초` : `${l.n} +${l.val}${l.u}`);
@@ -585,7 +586,7 @@ function summaryHtml() {
     ${box('스타포스 시도', fmt(L.sf))}
     ${box('파괴', fmt(L.boom))}
     ${box('레드/블랙 큐브', fmt(L.red) + ' / ' + fmt(L.black))}
-    ${box('에디셔널 큐브', fmt(L.add))}
+    ${box('에디 / 화에큐', fmt(L.add) + ' / ' + fmt(L.white || 0))}
     ${box('주문서 / 리턴', fmt(L.scroll || 0) + ' / ' + fmt(L.ret || 0))}
     ${box('강환 / 영환 / 검환', fmt(L.flameR) + ' / ' + fmt(L.flameE) + ' / ' + fmt(L.flameB || 0))}`;
 }
@@ -988,7 +989,7 @@ const goalOf = kind => (M.goal[kind] = M.goal[kind] || { grade: 3, opt: 'main', 
 function autoCubeHtml(kind) {
   const g = goalOf(kind), A = M.auto;
   const running = A && A.kind === kind;
-  const types = kind === 'pot' ? [['red', '레드'], ['black', '블랙']] : [['add', '에디셔널']];
+  const types = kind === 'pot' ? [['red', '레드'], ['black', '블랙']] : [['add', '에디셔널'], ['white', '화이트 에디']];
   const shown = running ? A : M.keepLive && M.keepLive.kind === kind ? M.keepLive : null;
   return `<div class="auto-cube">
     <div class="pot-title">자동 큐브 <span class="muted small">목표에 도달하면 멈춰요</span></div>
@@ -1021,7 +1022,7 @@ function startAuto(type) {
     A.tries++; A.last = res;
     // 레드/에디는 바로 적용, 블랙은 등급이 오르거나 목표 옵션일 때만 AFTER 선택
     const met = goalMet(res, g);
-    if (type !== 'black' || met || res.grade > it[kind].grade) it[kind] = res;
+    if (!CUBES[type].choose || met || res.grade > it[kind].grade) it[kind] = res;
     if (met) { A.done = true; stopAuto(`목표 달성! ${fmt(A.tries)}회 만에 성공`); return; }
     if (A.tries >= 1000000) { stopAuto(`100만 회 동안 목표를 못 띄워서 멈췄어요.`); return; }
     const live = $('#cubeLive'); if (live) live.innerHTML = liveHtml(A);
@@ -1103,7 +1104,7 @@ function tabBody(it, t) {
       <p class="muted small">파괴되면 12성으로 복구돼요.</p>`;
   }
   if (M.tab === 'pot') {
-    const pend = M.pending ? `
+    const pend = M.pending && M.pendKind !== 'add' ? `
       <div class="compare">
         <div class="cmp"><div class="pot-title">BEFORE</div>${potBlock('현재', it.pot)}<button data-act="keepBefore">BEFORE 유지</button></div>
         <div class="cmp"><div class="pot-title">AFTER</div>${potBlock('새 옵션', M.pending)}<button class="primary" data-act="takeAfter">AFTER 선택</button></div>
@@ -1116,7 +1117,13 @@ function tabBody(it, t) {
     <p class="muted small">등급업 확률(레드/블랙): 레어→에픽 6%/15%, 에픽→유니크 1.8%/3.5%, 유니크→레전드리 0.3%/1.2%</p>`;
   }
   if (M.tab === 'add') {
-    return `<div class="actions"><button class="add" data-act="cube" data-cube="add">에디셔널 큐브 사용</button></div>
+    const pend = M.pending && M.pendKind === 'add' ? `
+      <div class="compare">
+        <div class="cmp"><div class="pot-title">BEFORE</div>${potBlock('현재', it.add)}<button data-act="keepBefore">BEFORE 유지</button></div>
+        <div class="cmp"><div class="pot-title">AFTER</div>${potBlock('새 옵션', M.pending)}<button class="primary" data-act="takeAfter">AFTER 선택</button></div>
+      </div>` : '';
+    return `<div class="actions"><button class="add" data-act="cube" data-cube="add">에디셔널 큐브 사용</button>
+      <button class="white" data-act="cube" data-cube="white">화이트 에디셔널 큐브 사용</button></div>${pend}
     ${autoCubeHtml('add')}
     <p class="muted small">등급업 확률: 레어→에픽 4.76%, 에픽→유니크 1.96%, 유니크→레전드리 0.5%</p>`;
   }
@@ -1219,7 +1226,7 @@ document.addEventListener('click', e => {
     case 'cube': {
       const type = b.dataset.cube, C = CUBES[type], prev = it[C.kind].grade;
       const res = cubeRoll(it, type);
-      if (type === 'black') M.pending = res; else it[C.kind] = res;
+      if (C.choose) { M.pending = res; M.pendKind = C.kind; } else it[C.kind] = res;
       setMsg(res.grade > prev ? `✨ 등급 상승! ${GRADES[res.grade]}` : `${C.name} 사용`, res.grade > prev ? 'ok' : '');
       refresh(); break;
     }
@@ -1234,7 +1241,7 @@ document.addEventListener('click', e => {
       if (S.inv.some(i => i.id === b.dataset.id)) { toast('갖고 있는 아이템이라 지울 수 없어요'); return; }
       removeCustom(b.dataset.id); renderMain(); break;
     case 'keepBefore': M.pending = null; setMsg('기존 옵션을 유지했어요.'); refresh(); break;
-    case 'takeAfter': it.pot = M.pending; M.pending = null; setMsg('새 옵션을 적용했어요.', 'ok'); refresh(); break;
+    case 'takeAfter': it[M.pendKind || 'pot'] = M.pending; M.pending = null; setMsg('새 옵션을 적용했어요.', 'ok'); refresh(); break;
     case 'fAuto': startFlameAuto(b.dataset.flame); break;
     case 'fStop': stopFlameAuto(); break;
     case 'fKeep': M.fpend = null; setMsg('기존 추옵을 유지했어요.'); refresh(); break;

@@ -212,3 +212,5 @@ button.link { background: none; border: none; color: #ff7b7b; padding: 0 4px; fo
 .rk.top1 { color: #ffd76a; } .rk.top2 { color: #d8dde6; } .rk.top3 { color: #e0a070; }
 .rk-name { flex: 1; min-width: 0; }
 .rk-power { color: #ffd76a; white-space: nowrap; }
+
+button.white { background: #e8e8f0; color: #1a1a22; }
