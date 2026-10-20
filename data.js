@@ -85,8 +85,10 @@ const CLASSES = [
 
 const ITEMS = [...ITEM_DATA];
 
-// 직업 전용 보조무기 (이미지 없음)
-CLASSES.forEach(c => ITEMS.push({ id: `보조-${c.name}`, name: `${c.name} 보조무기`, set: '보조무기', slot: '보조', level: 100, group: 'all', only: c.name,
+// 직업별 실제 보조무기 + 데이터에 없는 직업은 공용 보조무기 (이미지 없음)
+ITEMS.push(...SECONDARY_DATA);
+const HAS_SECONDARY = new Set(SECONDARY_DATA.flatMap(t => t.onlyAny));
+CLASSES.filter(c => !HAS_SECONDARY.has(c.name)).forEach(c => ITEMS.push({ id: `보조-${c.name}`, name: `${c.name} 보조무기`, set: '보조무기', slot: '보조', level: 100, group: 'all', only: c.name,
   s: { STR: 10, DEX: 10, INT: 10, LUK: 10 }, pad: 3, mad: 3 }));
 
 // 광휘의 보스 세트 (2024~ 신규, 데이터 출처: 나무위키 / 이미지 없음)

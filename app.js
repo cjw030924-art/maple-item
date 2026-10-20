@@ -114,6 +114,7 @@ const keyToSlot = k => k.replace(/\d$/, '');
 
 function canUse(t) {
   if (t.only && t.only !== cls.name) return false;
+  if (t.onlyAny && !t.onlyAny.includes(cls.name)) return false;
   if (t.weapon && !cls.weapons.includes(t.weapon)) return false;
   return t.group === 'all' || t.group === cls.group;
 }
