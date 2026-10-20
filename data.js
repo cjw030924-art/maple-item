@@ -123,3 +123,6 @@ ITEMS.filter(t => t.set === '미트라').forEach(t => (t.icon = 'icons/mitra.png
 
 // 데스티니 무기 (22성 고정 → 25성까지, 15% 주문서 완료 상태)
 ITEMS.push(...DESTINY_DATA);
+
+// 아스트라 보조무기 (3단계, 스타포스 30성까지)
+ITEMS.push(...ASTRA_DATA);

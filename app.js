@@ -698,7 +698,7 @@ function openModal(uid) {
 function modalTabs(t) {
   const r = [];
   if (tucOf(t)) r.push(['scroll', '주문서']);
-  if (SF_OK(t.slot)) r.push(['sf', '스타포스']);
+  if ((t.astra || SF_OK(t.slot))) r.push(['sf', '스타포스']);
   if (POT_CAT[t.slot]) r.push(['pot', '잠재능력'], ['add', '에디셔널']);
   if (FLAME_OK(t.slot)) r.push(['flame', '추가옵션']);
   return r;
@@ -748,7 +748,7 @@ function tooltipHtml(it) {
     <div class="tt-pot-title gt${p.grade}"><span class="badge b${p.grade}">${GRADE_LETTER[p.grade]}</span> ${title}</div>
     ${p.lines.map(l => `<div>${lineText(l)}</div>`).join('')}</div>`;
   return `<div class="tooltip">
-    ${SF_OK(t.slot) ? `<div class="stars">${starsHtml(it, t)}</div>` : ''}
+    ${(t.astra || SF_OK(t.slot)) ? `<div class="stars">${starsHtml(it, t)}</div>` : ''}
     <div class="tt-name">${t.name}${it.star ? ` (+${it.star})` : ''}</div>
     ${g >= 0 ? `<div class="tt-grade">(${GRADES[g]} 아이템)</div>` : ''}
     <div class="tt-sec tt-top">
