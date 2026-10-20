@@ -107,3 +107,10 @@ const RADIANCE_SET = {
 // 미트라의 분노 (직업군별 엠블렘, 이미지 없음)
 GROUPS.forEach(g => ITEMS.push({ id: `미트라-${g.key}`, name: `미트라의 분노 : ${g.name}`, set: '미트라', slot: '엠블렘', level: 200, group: g.key,
   s: { STR: 40, DEX: 40, INT: 40, LUK: 40 }, pad: 3, mad: 3, tuc: 0 }));
+
+// 광휘 아이콘 (스크린샷에서 잘라낸 이미지) + 업그레이드 횟수
+[['근원의 속삭임', 1], ['황홀한 악몽', 2], ['죽음의 맹세', 3], ['불멸의 유산', 4]].forEach(([name, n]) => {
+  ITEMS.find(t => t.id === `광휘-${name}`).icon = `icons/radiance-${n}.png`;
+});
+ITEMS.find(t => t.id === '광휘-죽음의 맹세').tuc = 6;
+ITEMS.find(t => t.id === '광휘-불멸의 유산').tuc = 0;
