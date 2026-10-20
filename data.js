@@ -126,3 +126,7 @@ ITEMS.push(...DESTINY_DATA);
 
 // 아스트라 보조무기 (3단계, 스타포스 30성까지)
 ITEMS.push(...ASTRA_DATA);
+
+// 컴플리트 언더컨트롤 (하트, Lv.200, 수치: maplestorywiki.net "Total Control")
+ITEMS.push({ id: '하트-컴플리트 언더컨트롤', name: '컴플리트 언더컨트롤', set: '하트', slot: '하트', level: 200, group: 'all',
+  s: { STR: 25, DEX: 25, INT: 25, LUK: 25 }, pad: 15, mad: 15, ied: 30, tuc: 10, icon: 'icons/total-control.png' });
