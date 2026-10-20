@@ -103,3 +103,7 @@ const RADIANCE_SET = {
   2: { all: 20, att: 20, boss: 15 }, 3: { all: 20, att: 20, ied: 15 }, 4: { all: 20, att: 20, cd: 5 },
   5: { all: 20, att: 20, boss: 15 }, 6: { all: 20, att: 20, cd: 7.5 },
 };
+
+// 미트라의 분노 (직업군별 엠블렘, 이미지 없음)
+GROUPS.forEach(g => ITEMS.push({ id: `미트라-${g.key}`, name: `미트라의 분노 : ${g.name}`, set: '미트라', slot: '엠블렘', level: 200, group: g.key,
+  s: { STR: 40, DEX: 40, INT: 40, LUK: 40 }, pad: 3, mad: 3, tuc: 0 }));
