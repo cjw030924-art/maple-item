@@ -219,3 +219,5 @@ button.white { background: #e8e8f0; color: #1a1a22; }
 .fcond { display: flex; align-items: center; gap: 6px; }
 .fcond select, .fcond input, .goal select[data-fmode] { background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 5px 6px; font: inherit; font-size: 13px; }
 .fcond input { width: 70px; }
+
+.tooltip .ex-c, .ex-c { color: #ff9a3c; }

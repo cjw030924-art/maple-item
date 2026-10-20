@@ -130,3 +130,12 @@ ITEMS.push(...ASTRA_DATA);
 // 컴플리트 언더컨트롤 (하트, Lv.200, 수치: maplestorywiki.net "Total Control")
 ITEMS.push({ id: '하트-컴플리트 언더컨트롤', name: '컴플리트 언더컨트롤', set: '하트', slot: '하트', level: 200, group: 'all',
   s: { STR: 25, DEX: 25, INT: 25, LUK: 25 }, pad: 15, mad: 15, ied: 30, tuc: 10, icon: 'icons/total-control.png' });
+
+// 익셉셔널 강화 가능 부위 (칠흑 1회, 광휘 3회 / 회당 올스탯 +20 공마 +15, 몽환의 벨트 외에는 근사치)
+[['공용-몽환의 벨트', 1], ['공용-루즈 컨트롤 머신 마크', 1], ['공용-마력이 깃든 안대', 1], ['공용-커맨더 포스 이어링', 1],
+ ['광휘-오만의 원죄', 3], ['광휘-불멸의 유산', 3]].forEach(([id, max]) => {
+  const t = ITEMS.find(x => x.id === id || x.name === id.replace(/^[^-]+-/, ''));
+  if (t) Object.assign(t, { exMax: max, exStat: 20, exAtt: 15 });
+});
+// 불멸의 유산: 훈장이지만 추가옵션 가능
+ITEMS.find(t => t.id === '광휘-불멸의 유산').flameOk = true;

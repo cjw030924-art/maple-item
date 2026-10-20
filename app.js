@@ -356,8 +356,9 @@ function itemParts(it) {
 function itemStats(it) {
   const { t, sf, fl } = itemParts(it), A = ATT_KEY();
   const sc = scOf(it);
-  const r = { main: tMain(t) + sf.stat + fl.main + sc.s[cls.main], sub: tSub(t) + sf.stat + fl.sub + sc.s[cls.sub],
-    att: tAtt(t) + sf.att + fl.att + (cls.main === 'INT' ? sc.mad : sc.pad),
+  const ex = exStat(t, exOf(it));
+  const r = { main: tMain(t) + sf.stat + fl.main + sc.s[cls.main] + ex.stat, sub: tSub(t) + sf.stat + fl.sub + sc.s[cls.sub] + ex.stat,
+    att: tAtt(t) + sf.att + fl.att + (cls.main === 'INT' ? sc.mad : sc.pad) + ex.att,
     mainPct: fl.all, attPct: 0, boss: fl.boss + (t.boss || 0), dmg: fl.dmg, cd: 0, ied: [] };
   if (t.ied) r.ied.push(t.ied);
   [it.pot, it.add].forEach(p => p && p.lines.forEach(l => {
@@ -489,7 +490,7 @@ function createItem(id) {
     it.pot = { grade: 0, lines: rollLines(cat, 0, [1, 0.1, 0.01], false, t.level) };
     it.add = { grade: 0, lines: rollLines(cat, 0, [1, 0.05, 0.01], true, t.level) };
   }
-  if (FLAME_OK(t.slot)) { it.flame = rollFlame(it, 'flameR'); S.log.flameR--; }
+  if ((t.flameOk || FLAME_OK(t.slot))) { it.flame = rollFlame(it, 'flameR'); S.log.flameR--; }
   S.inv.push(it);
   return it;
 }
@@ -606,6 +607,7 @@ function summaryHtml() {
     ${box('파괴', fmt(L.boom))}
     ${box('레드/블랙 큐브', fmt(L.red) + ' / ' + fmt(L.black))}
     ${box('에디 / 화에큐', fmt(L.add) + ' / ' + fmt(L.white || 0))}
+    ${box('익셉셔널 해머', fmt(L.ex || 0))}
     ${box('주문서 / 리턴', fmt(L.scroll || 0) + ' / ' + fmt(L.ret || 0))}
     ${box('강환 / 영환 / 검환', fmt(L.flameR) + ' / ' + fmt(L.flameE) + ' / ' + fmt(L.flameB || 0))}`;
 }
@@ -698,9 +700,10 @@ function openModal(uid) {
 function modalTabs(t) {
   const r = [];
   if (tucOf(t)) r.push(['scroll', '주문서']);
+  if (t.exMax) r.push(['ex', '익셉셔널']);
   if ((t.astra || SF_OK(t.slot))) r.push(['sf', '스타포스']);
   if (POT_CAT[t.slot]) r.push(['pot', '잠재능력'], ['add', '에디셔널']);
-  if (FLAME_OK(t.slot)) r.push(['flame', '추가옵션']);
+  if ((t.flameOk || FLAME_OK(t.slot))) r.push(['flame', '추가옵션']);
   return r;
 }
 function starsHtml(it, t) {
@@ -719,16 +722,16 @@ function tooltipRows(it) {
   const flame = k => (it.flame || []).reduce((a, f) => a + (f.k === k || f.k.split('+').includes(k) && f.k.includes('+') ? f.val : 0), 0);
   const sc = scOf(it);
   STATS4.forEach(st => {
-    const base = t.s[st] || 0, sf = sfBonus(t, it.star).stat, fl = flame(st), scr = sc.s[st];
-    if (base + sf + fl + scr) rows.push({ n: st, base, sf, fl, scr });
+    const base = t.s[st] || 0, sf = sfBonus(t, it.star).stat, fl = flame(st), scr = sc.s[st], ex = exStat(t, exOf(it)).stat;
+    if (base + sf + fl + scr + ex) rows.push({ n: st, base, sf, fl, scr, ex });
   });
   const all = flame('ALL%');
   if (all) rows.push({ n: '올스탯', base: 0, sf: 0, fl: all, u: '%' });
   [['공격력', 'pad', 'ATT'], ['마력', 'mad', 'MATT']].forEach(([n, key, fk]) => {
     const base = t[key] || 0;
     const sf = t.slot === '무기' ? (base ? sfBonus(t, it.star, base).att : 0) : sfBonus(t, it.star).att;
-    const fl = flame(fk), scr = sc[key];
-    if (base + sf + fl + scr) rows.push({ n, base, sf, fl, scr });
+    const fl = flame(fk), scr = sc[key], ex = exStat(t, exOf(it)).att;
+    if (base + sf + fl + scr + ex) rows.push({ n, base, sf, fl, scr, ex });
   });
   [['BOSS%', '보스 몬스터 공격 시 데미지', t.boss || 0], ['DMG%', '데미지', 0]].forEach(([k, n, base]) => {
     const fl = flame(k); if (fl || base) rows.push({ n, base, sf: 0, fl, u: '%' });
@@ -740,9 +743,9 @@ const GRADE_LETTER = ['R', 'E', 'U', 'L'];
 function tooltipHtml(it) {
   const t = TPL[it.id], g = gradeOf(it);
   const rows = tooltipRows(it).map(r => {
-    const u = r.u || '', scr = r.scr || 0, tot = r.base + r.sf + r.fl + scr, boosted = r.sf || r.fl || scr;
+    const u = r.u || '', scr = r.scr || 0, ex = r.ex || 0, tot = r.base + r.sf + r.fl + scr + ex, boosted = r.sf || r.fl || scr || ex;
     return `<div class="tt-row"><span class="${boosted ? 'tt-boost' : ''}">${r.n} : +${tot}${u}</span>
-      ${boosted ? `<span class="tt-break">( ${r.base}${u}${r.sf ? ` <i class="sf-c">+${r.sf}</i>` : ''}${scr ? ` <i class="sc-c">+${scr}</i>` : ''}${r.fl ? ` <i class="flame-c">+${r.fl}${u}</i>` : ''} )</span>` : ''}</div>`;
+      ${boosted ? `<span class="tt-break">( ${r.base}${u}${r.sf ? ` <i class="sf-c">+${r.sf}</i>` : ''}${scr ? ` <i class="sc-c">+${scr}</i>` : ''}${r.fl ? ` <i class="flame-c">+${r.fl}${u}</i>` : ''}${ex ? ` <i class="ex-c">+${ex}</i>` : ''} )</span>` : ''}</div>`;
   }).join('');
   const pot = (title, p) => `<div class="tt-sec">
     <div class="tt-pot-title gt${p.grade}"><span class="badge b${p.grade}">${GRADE_LETTER[p.grade]}</span> ${title}</div>
@@ -758,6 +761,7 @@ function tooltipHtml(it) {
     <div class="tt-sec">
       <div class="tt-row">장비분류 : ${t.slot}</div>
       ${rows}
+      ${t.exMax ? `<div class="tt-row ex-c">익셉셔널 강화 ${exOf(it)} / ${t.exMax}</div>` : ''}
       ${tucOf(t) ? `<div class="tt-row tt-tuc">업그레이드 가능 횟수 : ${scLeft(it)} <span class="muted">(복구 가능 횟수 : ${scOf(it).fail})</span></div>${scOf(it).hammer ? '<div class="tt-row tt-tuc">황금망치 제련 적용</div>' : ''}` : ''}
     </div>
     ${it.pot ? pot('잠재옵션', it.pot) + pot('에디셔널 잠재옵션', it.add) : ''}
@@ -948,6 +952,20 @@ function stopFlameAuto(msg) {
   refresh();
 }
 
+// ===== 익셉셔널 =====
+// 1단계 100% / 2단계 50% / 3단계 25% (해머 2개면 확률 2배), 비용 0 / 25억 / 50억 (해머 2개면 2배)
+const EX_RATE = [1, 0.5, 0.25], EX_COST = [0, 2.5e9, 5e9];
+const exOf = it => it.ex || 0;
+const exStat = (t, n) => ({ stat: (t.exStat || 0) * n, att: (t.exAtt || 0) * n });
+function useHammer(it, two) {
+  const t = TPL[it.id], n = exOf(it);
+  if (!t.exMax || n >= t.exMax) return null;
+  S.log.ex = (S.log.ex || 0) + (two ? 2 : 1);
+  S.log.meso += EX_COST[n] * (two ? 2 : 1);
+  if (rnd() < Math.min(1, EX_RATE[n] * (two ? 2 : 1))) { it.ex = n + 1; return 'success'; }
+  return 'fail';
+}
+
 // ===== 자동 스타포스 =====
 const SF_RES = { success: ['성공', 'ok'], fail: ['실패(유지)', 'keep'], boom: ['💥 파괴', 'bad'] };
 function sfLiveHtml(A) {
@@ -1078,6 +1096,22 @@ function stopAuto(msg) {
 }
 
 function tabBody(it, t) {
+  if (M.tab === 'ex') {
+    const n = exOf(it), done = n >= t.exMax;
+    return `
+      <div class="sf-head">익셉셔널 강화 <b>${n} / ${t.exMax}</b></div>
+      <div class="muted small">1회당 올스탯 +${t.exStat}, 공/마 +${t.exAtt}</div>
+      ${done ? '<p>최대 강화 완료! 🎉</p>' : `
+      <div class="rates">
+        <span class="ok">해머 1개 성공 ${Math.round(EX_RATE[n] * 100)}% · ${fmtMeso(EX_COST[n])} 메소</span>
+        <span class="ok">해머 2개 성공 ${Math.round(Math.min(1, EX_RATE[n] * 2) * 100)}% · ${fmtMeso(EX_COST[n] * 2)} 메소</span>
+      </div>
+      <div class="actions">
+        <button class="primary" data-act="hammer">익셉셔널 해머 1개</button>
+        <button data-act="hammer" data-two="1">익셉셔널 해머 2개</button>
+      </div>`}
+      <p class="muted small">실패해도 강화 단계는 그대로예요. 수치는 근사치예요.</p>`;
+  }
   if (M.tab === 'scroll') {
     const left = scLeft(it), sc = scOf(it);
     if (!M.scroll) M.scroll = scrollList(t)[0].id;
@@ -1265,6 +1299,11 @@ document.addEventListener('click', e => {
     case 'retBack': it.sc = M.ret.before; M.ret = null; M.lastScroll = null; S.log.ret = (S.log.ret || 0) + 1; setMsg('리턴! 주문서 사용 전으로 되돌렸어요.'); refresh(); break;
     case 'chaosAuto': startChaosAuto(); break;
     case 'chaosStop': stopChaosAuto(); break;
+    case 'hammer': {
+      const r = useHammer(it, !!b.dataset.two);
+      setMsg(r === 'success' ? `익셉셔널 강화 성공! (${exOf(it)}단계)` : r === 'fail' ? '익셉셔널 강화 실패' : '더 강화할 수 없어요.', r === 'success' ? 'ok' : 'bad');
+      refresh(); break;
+    }
     case 'tool': setMsg(useTool(it, b.dataset.tool)); refresh(); break;
     case 'sfAuto': startSfAuto(); break;
     case 'sfStop': stopSfAuto(); break;
