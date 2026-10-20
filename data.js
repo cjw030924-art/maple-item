@@ -114,3 +114,7 @@ GROUPS.forEach(g => ITEMS.push({ id: `미트라-${g.key}`, name: `미트라의 �
 });
 ITEMS.find(t => t.id === '광휘-죽음의 맹세').tuc = 6;
 ITEMS.find(t => t.id === '광휘-불멸의 유산').tuc = 0;
+ITEMS.find(t => t.id === '광휘-오만의 원죄').icon = 'icons/radiance-5.png';
+ITEMS.find(t => t.id === '광휘-굶주리는 핏빛 원혼').icon = 'icons/radiance-6.png';
+ITEMS.find(t => t.id === '광휘-굶주리는 핏빛 원혼').tuc = 5;
+ITEMS.filter(t => t.set === '미트라').forEach(t => (t.icon = 'icons/mitra.png'));
