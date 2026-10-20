@@ -191,6 +191,7 @@ function potPool(cat, edi) {
       add('ATT%', '공격력', [3, 6, 9, 12]); add('MATT%', '마력', [3, 6, 9, 12]);
       add('DMG%', '데미지', [3, 6, 9, 12]);
       add('BOSS%', '보스 몬스터 공격 시 데미지', [null, null, 30, 40]);
+      add('BOSS%', '보스 몬스터 공격 시 데미지', [null, null, null, 35]);
       add('IED%', '몬스터 방어율 무시', [null, 15, 30, 40]);
       STATS4.forEach(s => add(s + '%', s, [3, 6, 9, 12]));
     } else {
@@ -239,6 +240,8 @@ function rollLines(cat, grade, primes, edi, level = 0) {
     // 250제 에디셔널: 주스탯% 레전 9 / 유니크 7, 올스탯% 레전 7 / 유니크 6
     if (edi && level >= 250 && /^(STR|DEX|INT|LUK)%$/.test(o.k)) val = [3, 5, 7, 9][g];
     if (edi && level >= 250 && o.k === 'ALL%') val = [null, 4, 6, 7][g];
+    // 250제 무기류 잠재: 레전드리 보공 35/40 → 40/45
+    if (!edi && level >= 250 && o.k === 'BOSS%' && g === 3) val += 5;
     return { k: o.k, n: o.n, u: o.u, val };
   });
 }
