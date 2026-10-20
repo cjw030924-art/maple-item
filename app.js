@@ -252,6 +252,7 @@ const lineText = l => (l.k === 'CDR' ? `${l.n} : -${l.val}초` : `${l.n} +${l.va
 const FLAMES = {
   flameR: { name: '강력한 환생의 불꽃', w: { 3: 0.2, 4: 0.3, 5: 0.36, 6: 0.14 } },
   flameE: { name: '영원한 환생의 불꽃', w: { 4: 0.29, 5: 0.45, 6: 0.25, 7: 0.01 } },
+  flameB: { name: '검은 환생의 불꽃', w: { 4: 0.2, 5: 0.3, 6: 0.36, 7: 0.14 } },
 };
 const FLAME_POOL = ['STR', 'DEX', 'INT', 'LUK', 'STR+DEX', 'STR+INT', 'STR+LUK', 'DEX+INT', 'DEX+LUK', 'INT+LUK',
   'HP', 'ATT', 'MATT', 'ALL%', 'LVR', 'SPD', 'JMP', 'DEF'];
@@ -272,7 +273,7 @@ function flameVal(k, tier, t) {
 function rollFlame(it, type) {
   const t = TPL[it.id];
   const pool = t.slot === '무기' ? [...FLAME_POOL, 'BOSS%', 'DMG%'] : FLAME_POOL;
-  S.log[type]++;
+  S.log[type] = (S.log[type] || 0) + 1;
   return shuffle([...pool]).slice(0, 4).map(k => {
     const tier = wpick(FLAMES[type].w);
     return { k, tier, val: flameVal(k, tier, t) };
@@ -282,6 +283,27 @@ function flameText(f) {
   const unit = ['ALL%', 'BOSS%', 'DMG%'].includes(f.k) ? '%' : '';
   const name = FLAME_LABEL[f.k] || f.k.replace('+', ' · ');
   return `${name} : ${f.k === 'LVR' ? '-' : '+'}${f.val}${unit}`;
+}
+function flameNum(it, lines = it.flame) {
+  const t = TPL[it.id], A = ATT_KEY();
+  if (!lines) return 0;
+  if (t.slot === '무기') { const a = lines.find(f => f.k === A); return a ? 8 - a.tier : 99; } // N추 (작을수록 좋음)
+  let sc = 0;
+  lines.forEach(f => {
+    if (f.k === cls.main || (f.k.includes('+') && f.k.split('+').includes(cls.main))) sc += f.val;
+    else if (f.k === A) sc += f.val * 4;
+    else if (f.k === 'ALL%') sc += f.val * 10;
+  });
+  return sc;
+}
+const flameBetter = (it, a, b) => (TPL[it.id].slot === '무기' ? flameNum(it, a) < flameNum(it, b) : flameNum(it, a) > flameNum(it, b));
+function flameGoalMet(it, lines) {
+  const g = M.fgoal, n = flameNum(it, lines);
+  if (TPL[it.id].slot === '무기') {
+    const boss = lines.filter(f => f.k === 'BOSS%').reduce((a, f) => a + f.val, 0);
+    return n <= g.wtier && boss >= g.boss;
+  }
+  return n >= g.score;
 }
 function flameScore(it) {
   if (!it.flame || !it.flame.length) return '';
@@ -565,7 +587,7 @@ function summaryHtml() {
     ${box('레드/블랙 큐브', fmt(L.red) + ' / ' + fmt(L.black))}
     ${box('에디셔널 큐브', fmt(L.add))}
     ${box('주문서 / 리턴', fmt(L.scroll || 0) + ' / ' + fmt(L.ret || 0))}
-    ${box('강환불 / 영환불', fmt(L.flameR) + ' / ' + fmt(L.flameE))}`;
+    ${box('강환 / 영환 / 검환', fmt(L.flameR) + ' / ' + fmt(L.flameE) + ' / ' + fmt(L.flameB || 0))}`;
 }
 function symHtml() {
   return `<h2>심볼 <span class="muted small">${cls.main} +${fmt(symStat())}</span>
@@ -649,7 +671,7 @@ function invHtml() {
 function openModal(uid) {
   const t = TPL[findItem(uid).id];
   const tabs = modalTabs(t);
-  M = { chaosGoal: (M && M.chaosGoal) || { att: 6, main: 6 }, chaosSpeed: M ? M.chaosSpeed : 20, useRet: M ? M.useRet : true, goal: (M && M.goal) || {}, sfSpeed: M ? M.sfSpeed : 20, auto: null, sfAuto: null, uid, tab: tabs[0] ? tabs[0][0] : null, pending: null, msg: '', msgCls: '',
+  M = { fgoal: (M && M.fgoal) || { score: 150, wtier: 2, boss: 0, speed: 15 }, chaosGoal: (M && M.chaosGoal) || { att: 6, main: 6 }, chaosSpeed: M ? M.chaosSpeed : 20, useRet: M ? M.useRet : true, goal: (M && M.goal) || {}, sfSpeed: M ? M.sfSpeed : 20, auto: null, sfAuto: null, uid, tab: tabs[0] ? tabs[0][0] : null, pending: null, msg: '', msgCls: '',
     o: (M && M.o) || { catch: true, prevent: false, sunday: false }, target: Math.min(22, maxStar(t.level)) };
   renderModal();
 }
@@ -871,6 +893,41 @@ function chaosLiveHtml(A) {
     <div class="chaos-res">${A.last ? deltaHtml(A.last, A.lastR) : ''}</div>`;
 }
 
+// ===== 자동 추옵 =====
+function flameLinesHtml(lines) { return lines.map(f => `<div>${flameText(f)} <span class="muted small">(${f.tier}단계)</span></div>`).join(''); }
+const flameLabel = (it, lines) => { const n = flameNum(it, lines); return TPL[it.id].slot === '무기' ? (n === 99 ? `${ATT_NAME()} 없음` : `${ATT_NAME()} ${n}추`) : `${n}급`; };
+function flameLiveHtml(A) {
+  const it = findItem(M.uid);
+  return `<div class="live-head"><b>${fmt(A.tries)}</b>회째 · ${FLAMES[A.type].name}${A.done ? ' · <span class="ok">목표 달성!</span>' : ''}</div>
+    <div class="flame-c"><b>${flameLabel(it, A.last)}</b></div>${flameLinesHtml(A.last)}`;
+}
+function startFlameAuto(type) {
+  const it = findItem(M.uid);
+  if (flameGoalMet(it, it.flame || [])) { setMsg('이미 목표를 달성한 상태예요.', 'ok'); renderModal(); return; }
+  M.fpend = null; M.msg = '';
+  const A = M.fauto = { type, tries: 0, last: null, done: false };
+  const step = () => {
+    if (!M || M.fauto !== A || A.done) return;
+    const res = rollFlame(it, type);
+    A.tries++; A.last = res;
+    // 강환·영환은 바로 적용, 검환은 더 좋을 때만 AFTER
+    if (type !== 'flameB' || flameBetter(it, res, it.flame || [])) it.flame = res;
+    if (flameGoalMet(it, res)) { it.flame = res; A.done = true; stopFlameAuto(`목표 달성! ${fmt(A.tries)}회 만에 ${flameLabel(it, res)}`); return; }
+    if (A.tries >= 1000000) { stopFlameAuto('100만 회 동안 목표를 못 띄워서 멈췄어요.'); return; }
+    const live = $('#flameLive'); if (live) live.innerHTML = flameLiveHtml(A);
+    const tip = $('.tooltip'); if (tip) tip.outerHTML = tooltipHtml(it);
+  };
+  A.timer = setInterval(() => { if (M.fgoal.speed == 0) { for (let i = 0; i < 40; i++) step(); } else step(); }, M.fgoal.speed || 4);
+  renderModal();
+}
+function stopFlameAuto(msg) {
+  if (!M || !M.fauto) return;
+  clearInterval(M.fauto.timer);
+  const A = M.fauto; M.fauto = null; M.flast = A;
+  setMsg(msg || `${fmt(A.tries)}회에서 중지했어요.`, A.done ? 'ok' : '');
+  refresh();
+}
+
 // ===== 자동 스타포스 =====
 const SF_RES = { success: ['성공', 'ok'], fail: ['실패(유지)', 'keep'], boom: ['💥 파괴', 'bad'] };
 function sfLiveHtml(A) {
@@ -1064,21 +1121,39 @@ function tabBody(it, t) {
     <p class="muted small">등급업 확률: 레어→에픽 4.76%, 에픽→유니크 1.96%, 유니크→레전드리 0.5%</p>`;
   }
   if (M.tab === 'flame') {
+    const isW = t.slot === '무기', g = M.fgoal, A = M.fauto, shown = A || M.flast;
+    const pend = M.fpend ? `<div class="compare">
+        <div class="cmp"><div class="pot-title">BEFORE · ${flameLabel(it, it.flame || [])}</div><div class="flame-box">${flameLinesHtml(it.flame || [])}</div><button data-act="fKeep">BEFORE 유지</button></div>
+        <div class="cmp"><div class="pot-title">AFTER · ${flameLabel(it, M.fpend)}</div><div class="flame-box">${flameLinesHtml(M.fpend)}</div><button class="primary" data-act="fTake">AFTER 선택</button></div>
+      </div>` : '';
     return `<div class="flame-box">
       <div class="pot-title">추가옵션 <b class="flame-c">${flameScore(it)}</b></div>
-      ${(it.flame || []).map(f => `<div>${flameText(f)} <span class="muted small">(${f.tier}단계)</span></div>`).join('')}
+      ${flameLinesHtml(it.flame || [])}
     </div>
     <div class="actions">
-      <button data-act="flame" data-flame="flameR">강력한 환생의 불꽃</button>
-      <button class="primary" data-act="flame" data-flame="flameE">영원한 환생의 불꽃</button>
+      <button data-act="flame" data-flame="flameR" ${A ? 'disabled' : ''}>강력한 환생의 불꽃</button>
+      <button class="primary" data-act="flame" data-flame="flameE" ${A ? 'disabled' : ''}>영원한 환생의 불꽃</button>
+      <button class="black" data-act="flame" data-flame="flameB" ${A ? 'disabled' : ''}>검은 환생의 불꽃</button>
+    </div>${pend}
+    <div class="auto-cube">
+      <div class="pot-title">자동 추옵 <span class="muted small">목표에 도달하면 멈춰요</span></div>
+      <div class="goal">${isW
+        ? `<span>${ATT_NAME()} <input type="number" min="1" max="7" data-fgoal="wtier" value="${g.wtier}">추 이상</span>
+           <span>보스 데미지 ≥ <input type="number" min="0" data-fgoal="boss" value="${g.boss}">%</span>`
+        : `<span>환산 ≥ <input type="number" min="0" data-fgoal="score" value="${g.score}">급</span>`}
+        <select data-fgoal="speed">${[[60, '보통'], [15, '빠름'], [0, '최대 속도']].map(([v, n]) => `<option value="${v}" ${g.speed == v ? 'selected' : ''}>${n}</option>`).join('')}</select>
+      </div>
+      <div class="actions">${A ? '<button class="danger" data-act="fStop">■ 중지</button>'
+        : [['flameR', '강환'], ['flameE', '영환'], ['flameB', '검환']].map(([k, n]) => `<button class="${k === 'flameB' ? 'black' : ''}" data-act="fAuto" data-flame="${k}">▶ ${n} 자동</button>`).join('')}</div>
+      <div class="live ${A ? 'on' : ''}" id="flameLive">${shown && shown.last ? flameLiveHtml(shown) : '<span class="muted small">자동을 켜면 여기에 결과가 계속 나와요.</span>'}</div>
     </div>
-    <p class="muted small">방어구: 주스탯 + ${ATT_NAME()}×4 + 올스탯%×10 으로 급수를 계산해요.</p>`;
+    <p class="muted small">${isW ? `무기: ${ATT_NAME()} 단계로 N추를 매겨요 (7단계 = 1추).` : `환산: ${cls.main} 1 = 1점 · 올스탯 1% = 10점 · ${ATT_NAME()} 1 = 4점 (${cls.main}이 들어간 이중 스탯 포함)`} 검환은 BEFORE/AFTER 중 고를 수 있고, 자동일 땐 더 좋을 때만 AFTER를 받아요.</p>`;
   }
   return '';
 }
 
 // ===== 이벤트 =====
-function closeModal() { if (M && M.chaosAuto) clearInterval(M.chaosAuto.timer); if (M && M.auto) clearInterval(M.auto.timer); if (M && M.sfAuto) clearInterval(M.sfAuto.timer); M = null; renderModal(); refresh(); }
+function closeModal() { if (M && M.fauto) clearInterval(M.fauto.timer); if (M && M.chaosAuto) clearInterval(M.chaosAuto.timer); if (M && M.auto) clearInterval(M.auto.timer); if (M && M.sfAuto) clearInterval(M.sfAuto.timer); M = null; renderModal(); refresh(); }
 function refresh() { save(); renderModal(); renderMain(); }
 function setMsg(msg, c = '') { M.msg = msg; M.msgCls = c; }
 
@@ -1109,7 +1184,7 @@ document.addEventListener('click', e => {
       if (!confirm('이 아이템을 버릴까요?')) return;
       { const k = equippedKey(uid); if (k) delete S.eq[k]; }
       S.inv = S.inv.filter(i => i.uid !== uid); M = null; refresh(); break;
-    case 'tab': if (M.chaosAuto) stopChaosAuto(); M.scroll = null; M.ret = null; M.lastScroll = null; M.chaosLast = null; if (M.auto) stopAuto(); if (M.sfAuto) stopSfAuto(); M.sfLast = null; M.keepLive = null; M.tab = b.dataset.tab; M.pending = null; M.msg = ''; renderModal(); break;
+    case 'tab': if (M.fauto) stopFlameAuto(); M.fpend = null; M.flast = null; if (M.chaosAuto) stopChaosAuto(); M.scroll = null; M.ret = null; M.lastScroll = null; M.chaosLast = null; if (M.auto) stopAuto(); if (M.sfAuto) stopSfAuto(); M.sfLast = null; M.keepLive = null; M.tab = b.dataset.tab; M.pending = null; M.msg = ''; renderModal(); break;
     case 'sf': {
       const before = it.star, r = doStar(it, M.o);
       if (r === 'success') setMsg(`성공! ${before}성 → ${it.star}성`, 'ok');
@@ -1160,7 +1235,16 @@ document.addEventListener('click', e => {
       removeCustom(b.dataset.id); renderMain(); break;
     case 'keepBefore': M.pending = null; setMsg('기존 옵션을 유지했어요.'); refresh(); break;
     case 'takeAfter': it.pot = M.pending; M.pending = null; setMsg('새 옵션을 적용했어요.', 'ok'); refresh(); break;
+    case 'fAuto': startFlameAuto(b.dataset.flame); break;
+    case 'fStop': stopFlameAuto(); break;
+    case 'fKeep': M.fpend = null; setMsg('기존 추옵을 유지했어요.'); refresh(); break;
+    case 'fTake': it.flame = M.fpend; M.fpend = null; setMsg(`새 추옵을 적용했어요 → ${flameScore(it)}`, 'ok'); refresh(); break;
     case 'flame': {
+      if (b.dataset.flame === 'flameB') {
+        M.fpend = rollFlame(it, 'flameB');
+        setMsg(`검은 환생의 불꽃 → AFTER ${flameLabel(it, M.fpend)}`); refresh(); break;
+      }
+      M.fpend = null;
       it.flame = rollFlame(it, b.dataset.flame);
       setMsg(`${FLAMES[b.dataset.flame].name} 사용 → ${flameScore(it)}`);
       refresh(); break;
@@ -1181,6 +1265,7 @@ document.addEventListener('input', e => {
 });
 document.addEventListener('change', e => {
   if (e.target.dataset && e.target.dataset.scroll && M) { M.scroll = e.target.dataset.scroll; M.lastScroll = null; M.chaosLast = null; renderModal(); return; }
+  if (e.target.dataset && e.target.dataset.fgoal && M) { M.fgoal[e.target.dataset.fgoal] = +e.target.value; return; }
   if (e.target.id === 'useRet' && M) { M.useRet = e.target.checked; return; }
   if (e.target.id === 'chaosSpeed' && M) { M.chaosSpeed = +e.target.value; return; }
   if (e.target.dataset && e.target.dataset.cgoal && M) { M.chaosGoal[e.target.dataset.cgoal] = +e.target.value; return; }
