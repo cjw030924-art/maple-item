@@ -904,7 +904,6 @@ function flameLiveHtml(A) {
 }
 function startFlameAuto(type) {
   const it = findItem(M.uid);
-  if (flameGoalMet(it, it.flame || [])) { setMsg('이미 목표를 달성한 상태예요.', 'ok'); renderModal(); return; }
   M.fpend = null; M.msg = '';
   const A = M.fauto = { type, tries: 0, last: null, done: false };
   const step = () => {
@@ -969,6 +968,13 @@ const GOAL_OPTS = kind => {
   const o = [['none', '옵션 상관없음'], ['main', `${m}% (올스탯 포함)`], ['att', an + '%'], ['boss', '보스 데미지%'], ['ied', '방어율 무시%'],
     ['cd', '크리티컬 데미지%'], ['cdr', '쿨타임 감소(초)'], ['meso', '메소 획득량%'], ['drop', '아이템 드롭률%']];
   if (kind === 'add') o.push(['attFlat', an + ' +N'], ['mainFlat', m + ' +N']);
+  // 무기·보조·엠블렘: 줄 조합 (보=보공, 공=공/마%, 방=방무)
+  const it = M && findItem(M.uid);
+  if (it && POT_CAT[TPL[it.id].slot] === 'weapon') {
+    const a1 = an.slice(0, 1);
+    o.splice(1, 0, ...['공공공', '보공공', '보보공', '보보보', '방공공', '방보공', '유효3'].map(p =>
+      ['p:' + p, p === '유효3' ? `유효 3줄 (보공·${an}%·방무 아무거나)` : `${p.replace(/공/g, a1)} 이상`]));
+  }
   return o;
 };
 function goalSum(p, opt) {
@@ -980,8 +986,19 @@ function goalSum(p, opt) {
   }[opt];
   return match ? p.lines.reduce((a, l) => a + (match(l) ? l.val : 0), 0) : 0;
 }
+// 줄 조합 목표: 보/공/방 줄 수가 패턴 이상인지 (공 대신 더 좋은 보공도 인정하지 않음 - 패턴 그대로)
+function patternMet(p, pat) {
+  const A = ATT_KEY();
+  const c = { 보: 0, 공: 0, 방: 0 };
+  p.lines.forEach(l => { if (l.k === 'BOSS%') c.보++; else if (l.k === A + '%') c.공++; else if (l.k === 'IED%') c.방++; });
+  if (pat === '유효3') return c.보 + c.공 + c.방 >= 3;
+  const need = { 보: 0, 공: 0, 방: 0 };
+  [...pat].forEach(ch => need[ch]++);
+  return c.보 >= need.보 && c.공 >= need.공 && c.방 >= need.방;
+}
 function goalMet(p, g) {
   if (g.grade >= 0 && p.grade < g.grade) return false;
+  if (g.opt.startsWith('p:')) return patternMet(p, g.opt.slice(2));
   if (g.opt !== 'none' && goalSum(p, g.opt) < g.min) return false;
   return true;
 }
@@ -996,7 +1013,7 @@ function autoCubeHtml(kind) {
     <div class="goal">
       <select data-goal="grade" data-kind="${kind}">${[[-1, '등급 상관없음'], ...GRADES.map((n, i) => [i, n + ' 이상'])].map(([v, n]) => `<option value="${v}" ${g.grade == v ? 'selected' : ''}>${n}</option>`).join('')}</select>
       <select data-goal="opt" data-kind="${kind}">${GOAL_OPTS(kind).map(([v, n]) => `<option value="${v}" ${g.opt === v ? 'selected' : ''}>${n}</option>`).join('')}</select>
-      <span>합계 ≥ <input type="number" data-goal="min" data-kind="${kind}" value="${g.min}" min="0"></span>
+      ${g.opt.startsWith('p:') || g.opt === 'none' ? '' : `<span>합계 ≥ <input type="number" data-goal="min" data-kind="${kind}" value="${g.min}" min="0"></span>`}
       <select data-goal="speed" data-kind="${kind}">${[[60, '보통'], [15, '빠름'], [0, '최대 속도']].map(([v, n]) => `<option value="${v}" ${g.speed == v ? 'selected' : ''}>${n}</option>`).join('')}</select>
     </div>
     <div class="actions">${running
@@ -1013,7 +1030,6 @@ function liveHtml(A) {
 function startAuto(type) {
   const it = findItem(M.uid), C = CUBES[type], kind = C.kind, g = goalOf(kind);
   if (g.grade < 0 && g.opt === 'none') { setMsg('목표를 하나 이상 정해주세요.', 'bad'); renderModal(); return; }
-  if (goalMet(it[kind], g)) { setMsg('이미 목표를 달성한 상태예요.', 'ok'); renderModal(); return; }
   M.pending = null; M.msg = '';
   const A = M.auto = { type, kind, tries: 0, last: null, done: false };
   const step = () => {
@@ -1278,7 +1294,7 @@ document.addEventListener('change', e => {
   if (e.target.dataset && e.target.dataset.cgoal && M) { M.chaosGoal[e.target.dataset.cgoal] = +e.target.value; return; }
   if (e.target.id === 'sfSpeed' && M) { M.sfSpeed = +e.target.value; return; }
   const gk = e.target.dataset && e.target.dataset.goal;
-  if (gk && M) { const g = goalOf(e.target.dataset.kind); g[gk] = gk === 'opt' ? e.target.value : +e.target.value; return; }
+  if (gk && M) { const g = goalOf(e.target.dataset.kind); g[gk] = gk === 'opt' ? e.target.value : +e.target.value; if (gk === 'opt') renderModal(); return; }
   const k = e.target.dataset && e.target.dataset.opt;
   if (k && M) { M.o[k] = e.target.checked; renderModal(); }
 });
