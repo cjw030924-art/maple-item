@@ -722,16 +722,16 @@ function tooltipRows(it) {
   const flame = k => (it.flame || []).reduce((a, f) => a + (f.k === k || f.k.split('+').includes(k) && f.k.includes('+') ? f.val : 0), 0);
   const sc = scOf(it);
   STATS4.forEach(st => {
-    const base = t.s[st] || 0, sf = sfBonus(t, it.star).stat, fl = flame(st), scr = sc.s[st], ex = exStat(t, exOf(it)).stat;
-    if (base + sf + fl + scr + ex) rows.push({ n: st, base, sf, fl, scr, ex });
+    const base = t.s[st] || 0, sf = sfBonus(t, it.star).stat, fl = flame(st), scr = sc.s[st];
+    if (base + sf + fl + scr) rows.push({ n: st, base, sf, fl, scr });
   });
   const all = flame('ALL%');
   if (all) rows.push({ n: '올스탯', base: 0, sf: 0, fl: all, u: '%' });
   [['공격력', 'pad', 'ATT'], ['마력', 'mad', 'MATT']].forEach(([n, key, fk]) => {
     const base = t[key] || 0;
     const sf = t.slot === '무기' ? (base ? sfBonus(t, it.star, base).att : 0) : sfBonus(t, it.star).att;
-    const fl = flame(fk), scr = sc[key], ex = exStat(t, exOf(it)).att;
-    if (base + sf + fl + scr + ex) rows.push({ n, base, sf, fl, scr, ex });
+    const fl = flame(fk), scr = sc[key];
+    if (base + sf + fl + scr) rows.push({ n, base, sf, fl, scr });
   });
   [['BOSS%', '보스 몬스터 공격 시 데미지', t.boss || 0], ['DMG%', '데미지', 0]].forEach(([k, n, base]) => {
     const fl = flame(k); if (fl || base) rows.push({ n, base, sf: 0, fl, u: '%' });
@@ -761,9 +761,14 @@ function tooltipHtml(it) {
     <div class="tt-sec">
       <div class="tt-row">장비분류 : ${t.slot}</div>
       ${rows}
-      ${t.exMax ? `<div class="tt-row ex-c">익셉셔널 강화 ${exOf(it)} / ${t.exMax}</div>` : ''}
       ${tucOf(t) ? `<div class="tt-row tt-tuc">업그레이드 가능 횟수 : ${scLeft(it)} <span class="muted">(복구 가능 횟수 : ${scOf(it).fail})</span></div>${scOf(it).hammer ? '<div class="tt-row tt-tuc">황금망치 제련 적용</div>' : ''}` : ''}
     </div>
+    ${exOf(it) ? `<div class="tt-sec">
+      <div class="tt-pot-title"><span class="ex-badge">EX</span> <span class="ex-title">익셉셔널 : ${exOf(it)}회</span></div>
+      <div class="tt-ex"><span>올스탯</span>: +${t.exStat * exOf(it)}</div>
+      <div class="tt-ex"><span>최대 HP / 최대 MP</span>: +${1000 * exOf(it)}</div>
+      <div class="tt-ex"><span>공격력 / 마력</span>: +${t.exAtt * exOf(it)}</div>
+    </div>` : ''}
     ${it.pot ? pot('잠재옵션', it.pot) + pot('에디셔널 잠재옵션', it.add) : ''}
     ${powerBlock(it)}
   </div>`;

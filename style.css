@@ -221,3 +221,8 @@ button.white { background: #e8e8f0; color: #1a1a22; }
 .fcond input { width: 70px; }
 
 .tooltip .ex-c, .ex-c { color: #ff9a3c; }
+
+.ex-badge { background: #d42a2a; color: #fff; font-size: 11px; font-weight: bold; padding: 1px 6px; border-radius: 99px; }
+.ex-title { color: #ff4d4d; font-weight: bold; }
+.tt-ex { font-weight: bold; }
+.tt-ex span { display: inline-block; min-width: 150px; }
