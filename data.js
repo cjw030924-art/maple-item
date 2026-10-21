@@ -139,3 +139,12 @@ ITEMS.push({ id: '하트-컴플리트 언더컨트롤', name: '컴플리트 언�
 });
 // 불멸의 유산: 훈장이지만 추가옵션 가능
 ITEMS.find(t => t.id === '광휘-불멸의 유산').flameOk = true;
+
+// 에테르넬 장갑·신발·망토 (2024~ 추가, 이미지 없음)
+// 신발은 인게임 툴팁 기준 주스탯/부스탯 55 · 공/마 12, 장갑·망토는 근사치
+[['장갑', '글러브', 55, 12], ['신발', '슈즈', 55, 12], ['망토', '케이프', 50, 9]].forEach(([slot, part, stat, att]) =>
+  ['나이트', '메이지', '아처', '시프', '파이렛'].forEach((p, i) => {
+    const group = ['warrior', 'mage', 'archer', 'thief', 'pirate'][i];
+    ITEMS.push({ id: `에테르넬-${slot}-${group}`, name: `에테르넬 ${p}${part}`, set: '에테르넬', slot, level: 250, group,
+      s: Object.fromEntries(['STR', 'DEX', 'INT', 'LUK'].map(k => [k, ({ warrior: 'STR DEX', mage: 'INT LUK', archer: 'DEX STR', thief: 'LUK DEX', pirate: 'STR DEX' })[group].includes(k) ? stat : 0])), pad: att, mad: att, tuc: 7 });
+  }));
