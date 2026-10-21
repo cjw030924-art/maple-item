@@ -148,3 +148,15 @@ ITEMS.find(t => t.id === '광휘-불멸의 유산').flameOk = true;
     ITEMS.push({ id: `에테르넬-${slot}-${group}`, name: `에테르넬 ${p}${part}`, set: '에테르넬', slot, level: 250, group,
       s: Object.fromEntries(['STR', 'DEX', 'INT', 'LUK'].map(k => [k, ({ warrior: 'STR DEX', mage: 'INT LUK', archer: 'DEX STR', thief: 'LUK DEX', pirate: 'STR DEX' })[group].includes(k) ? stat : 0])), pad: att, mad: att, tuc: 7 });
   }));
+
+// 에테르넬 장갑·신발·망토 아이콘 (인게임 캡처) + 망토는 올스탯 50
+ITEMS.filter(t => t.id.startsWith('에테르넬-')).forEach(t => {
+  t.icon = { 장갑: 'icons/eternal-gloves.png', 신발: 'icons/eternal-shoes.png', 망토: 'icons/eternal-cape.png' }[t.slot];
+  if (t.slot === '망토') t.s = { STR: 50, DEX: 50, INT: 50, LUK: 50 };
+});
+
+// 에테르넬 세트 효과 (n세트 달성 시 누적)
+const ETERNAL_SET = {
+  2: { att: 40, boss: 10 }, 3: { all: 50, att: 40, boss: 10 }, 4: { att: 40, boss: 10 }, 5: { att: 40, ied: 20 },
+  6: { att: 40, boss: 15 }, 7: { all: 50, att: 40, boss: 15 }, 8: { att: 40, boss: 15 },
+};

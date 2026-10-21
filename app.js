@@ -387,6 +387,14 @@ function totals(eq = S.eq) {
   // 광휘 세트 효과
   const rad = new Set([...new Set(Object.values(eq))].map(v => getIt(v)).filter(it => it && TPL[it.id].set === '광휘').map(it => it.id)).size;
   r.radiance = rad;
+  // 에테르넬 세트 (무기 제외 부위 수)
+  const ete = new Set([...new Set(Object.values(eq))].map(v => getIt(v)).filter(it => it && TPL[it.id].set === '에테르넬').map(it => TPL[it.id].slot)).size;
+  r.eternal = ete;
+  for (let n = 2; n <= Math.min(8, ete); n++) {
+    const e = ETERNAL_SET[n];
+    r.main += e.all || 0; r.sub += e.all || 0; r.att += e.att; r.boss += e.boss || 0;
+    if (e.ied) keep *= 1 - e.ied / 100;
+  }
   for (let n = 2; n <= rad; n++) {
     const e = RADIANCE_SET[n];
     r.main += e.all; r.sub += e.all; r.att += e.att; r.boss += e.boss || 0; r.cd += e.cd || 0;
@@ -602,6 +610,7 @@ function summaryHtml() {
     ${box('방어율 무시', r.ied.toFixed(1) + '%')}
     ${box('크리티컬 데미지', r.cd + '%')}
     ${r.radiance ? box('광휘 세트', r.radiance + '세트 효과') : ''}
+    ${r.eternal >= 2 ? box('에테르넬 세트', r.eternal + '세트 효과') : ''}
     ${box('사용 메소', fmtMeso(L.meso))}
     ${box('스타포스 시도', fmt(L.sf))}
     ${box('파괴', fmt(L.boom))}
