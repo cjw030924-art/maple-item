@@ -141,6 +141,8 @@ ITEMS.push({ id: '하트-컴플리트 언더컨트롤', name: '컴플리트 언�
   const t = ITEMS.find(x => x.id === id || x.name === id.replace(/^[^-]+-/, ''));
   if (t) Object.assign(t, { exMax: max, exStat: 20, exAtt: 15 });
 });
+// 광휘는 반지 빼고 전부 익셉셔널 3회
+ITEMS.filter(t => t.set === '광휘' && t.slot !== '반지').forEach(t => Object.assign(t, { exMax: 3, exStat: 20, exAtt: 15 }));
 // 반지·하트를 뺀 장신구(얼굴/눈/귀고리/펜던트)는 전부 익셉셔널 1회 (근사치)
 ITEMS.filter(t => ['얼굴', '눈', '귀고리', '펜던트'].includes(t.slot) && !t.exMax)
   .forEach(t => Object.assign(t, { exMax: 1, exStat: 20, exAtt: 15 }));
