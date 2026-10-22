@@ -59,6 +59,8 @@ function load(name) {
   S.sym = S.sym || {};
   delete S.pets; delete S.petEq; // 예전 펫 기능 데이터
   S.inv.forEach(i => { if (i.id === '펫장비') i.id = '1802653'; }); // 예전 펫장비 → 루나 크리스탈 키
+  S.hyper = S.hyper || {};
+  S.abil = S.abil || { grade: 0, lines: [abilLine(0), abilLine(0), abilLine(0)] };
   UNION = null;
   cls = CLASSES.find(c => c.name === name);
   // 예전 버전 데이터에 남은 없어진 아이템 정리
@@ -105,7 +107,7 @@ const LAYOUT = [
   ['반지4', '펜던트1', '엠블렘', '어깨', '뱃지'],
   ['벨트', '펜던트2', null, null, '훈장'],
   ['포켓', null, null, 'EMPTY', '하트'],
-  ['펫장비1', '펫장비2', '펫장비3', null, null],
+  ['펫장비1', '펫장비2', '펫장비3', 'ABIL', 'HYPER'],
 ];
 const SLOT_CHIPS = ['전체', '무기', '보조', '엠블렘', '모자', '상의', '하의', '신발', '장갑', '망토', '어깨', '벨트', '얼굴', '눈', '귀고리', '반지', '펜던트', '포켓', '뱃지', '훈장', '하트', '펫장비'];
 function slotKeys(s) {
@@ -406,6 +408,9 @@ function totals(eq = S.eq) {
   }
   const U = getUnion();
   r.att += U.att; r.boss += U.boss;
+  const H = hyperStat(), AB = abilStat();
+  r.main += H.main + AB.main; r.att += H.att + AB.att; r.boss += H.boss + AB.boss; r.dmg += H.dmg; r.cd += H.cd;
+  if (H.ied) keep *= 1 - H.ied / 100;
   r.ied = (1 - keep) * 100;
   r.sym = symStat();
   const BASE_MAIN = 18 + 5 * (S.level - 1), BASE_SUB = 4;
@@ -620,6 +625,7 @@ function summaryHtml() {
     ${box('레드/블랙 큐브', fmt(L.red) + ' / ' + fmt(L.black))}
     ${box('에디 / 화에큐', fmt(L.add) + ' / ' + fmt(L.white || 0))}
     ${box('익셉셔널 해머', fmt(L.ex || 0))}
+    ${box('어빌 재설정 / 명성치', fmt(L.abil || 0) + ' / ' + fmt(L.honor || 0))}
     ${box('주문서 / 리턴', fmt(L.scroll || 0) + ' / ' + fmt(L.ret || 0))}
     ${box('강환 / 영환 / 검환', fmt(L.flameR) + ' / ' + fmt(L.flameE) + ' / ' + fmt(L.flameB || 0))}`;
 }
@@ -658,6 +664,8 @@ function equipHtml() {
   return LAYOUT.flat().map(k => {
     if (!k) return '<div class="slot blank"></div>';
     if (k === 'EMPTY') return '<div class="slot locked"></div>';
+    if (k === 'ABIL') return `<div class="slot filled g${S.abil.grade}" data-act="panel" data-panel="abil"><span class="slot-name">어빌리티</span><span class="slot-txt gt${S.abil.grade}">${GRADES[S.abil.grade]}</span></div>`;
+    if (k === 'HYPER') return `<div class="slot filled" data-act="panel" data-panel="hyper"><span class="slot-name">하이퍼 스탯</span><span class="slot-txt">${hyperUsed()} / ${hyperTotal()}</span></div>`;
     if (k === '하의') {
       const top = S.eq['상의'] && findItem(S.eq['상의']);
       if (top && TPL[top.id].slot === '한벌옷') return '<div class="slot locked"><span class="slot-name">하의</span><span class="slot-item muted">(한벌옷)</span></div>';
@@ -788,6 +796,7 @@ function tooltipHtml(it) {
 function renderModal() {
   const el = $('#modal');
   if (!M) { el.classList.add('hidden'); el.innerHTML = ''; return; }
+  if (M.panel) return renderPanel();
   const it = findItem(M.uid);
   if (!it) { M = null; return renderModal(); }
   const t = TPL[it.id], k = equippedKey(it.uid);
@@ -1257,6 +1266,109 @@ function tabBody(it, t) {
   return '';
 }
 
+// ===== 하이퍼 스탯 / 어빌리티 (수치는 근사치) =====
+const HYPER = [
+  ['main', () => cls.main, lv => 30 * lv, ''],
+  ['att', () => ATT_NAME(), lv => 3 * lv, ''],
+  ['dmg', () => '데미지', lv => 3 * lv, '%'],
+  ['boss', () => '보스 몬스터 공격 시 데미지', lv => (lv <= 5 ? 3 * lv : 15 + 4 * (lv - 5)), '%'],
+  ['ied', () => '방어율 무시', lv => 3 * lv, '%'],
+  ['cd', () => '크리티컬 데미지', lv => lv, '%'],
+].map(([k, n, val, u]) => ({ k, n, val, u }));
+const HYPER_COST = [1, 2, 4, 8, 10, 15, 20, 25, 30, 35, 50, 65, 80, 95, 110];
+const hyperLv = k => S.hyper[k] || 0;
+// Lv.140부터 레벨마다 3 + (10레벨마다 1씩 증가) 포인트
+function hyperTotal() {
+  let t = 0;
+  for (let L = 140; L <= S.level; L++) t += 3 + Math.floor((L - 140) / 10);
+  return t;
+}
+const hyperUsed = () => HYPER.reduce((a, h) => a + HYPER_COST.slice(0, hyperLv(h.k)).reduce((x, y) => x + y, 0), 0);
+function hyperStat() {
+  return Object.fromEntries(HYPER.map(h => [h.k, hyperLv(h.k) ? h.val(hyperLv(h.k)) : 0]));
+}
+
+const ABIL_POOL = [
+  ['MAIN', '', [10, 20, 30, 40], ''], ['ATT', '', [3, 6, 12, 21], ''],
+  ['BOSS', '보스 몬스터 공격 시 데미지', [null, null, 10, 20], '%'],
+  ['CRIT', '크리티컬 확률', [5, 10, 20, 30], '%'],
+  ['BUFF', '버프 스킬의 지속 시간', [null, null, 38, 50], '%'],
+  ['CDSKIP', '스킬 사용 시 재사용 대기시간 미적용 확률', [null, null, 10, 20], '%'],
+  ['ABN', '상태 이상에 걸린 대상 공격 시 데미지', [3, 5, 8, 10], '%'],
+  ['MESO', '메소 획득량', [5, 10, 15, 20], '%'], ['DROP', '아이템 드롭률', [5, 10, 15, 20], '%'],
+  ['HP', '최대 HP', [150, 300, 450, 600], ''], ['PASSIVE', '패시브 스킬 레벨', [null, null, null, 1], ''],
+].map(([k, n, v, u]) => ({ k, n, v, u }));
+const ABIL_UP = [0.15, 0.045, 0.01];
+const ABIL_COST = [1000, 4000, 9000]; // 잠금 0/1/2줄
+const abilText = l => `${l.k === 'MAIN' ? cls.main : l.k === 'ATT' ? ATT_NAME() : l.n} +${l.val}${l.u}`;
+function abilLine(g) {
+  const o = pick(ABIL_POOL.filter(x => x.v[g] != null));
+  return { k: o.k, n: o.n, u: o.u, val: o.v[g], g };
+}
+// 첫 줄은 현재 등급, 2·3번째 줄은 25% 확률로 같은 등급 아니면 한 단계 아래
+function rollAbil(locks) {
+  const A = S.abil, n = locks.filter(Boolean).length;
+  if (n >= 3) return null;
+  S.log.honor = (S.log.honor || 0) + ABIL_COST[n];
+  S.log.abil = (S.log.abil || 0) + 1;
+  let g = A.grade;
+  if (g < 3 && rnd() < ABIL_UP[g]) g++;
+  A.lines = [0, 1, 2].map(i => (locks[i] ? A.lines[i] : abilLine(i === 0 || rnd() < 0.25 ? g : Math.max(0, g - 1))));
+  A.grade = g;
+  return g;
+}
+function abilStat() {
+  const r = { main: 0, att: 0, boss: 0 };
+  S.abil.lines.forEach(l => {
+    if (l.k === 'MAIN') r.main += l.val;
+    else if (l.k === 'ATT') r.att += l.val;
+    else if (l.k === 'BOSS') r.boss += l.val;
+  });
+  return r;
+}
+// 어빌/하이퍼를 뺐을 때와의 전투력 차이
+function panelContrib(kind) {
+  const now = totals().power, keep = kind === 'abil' ? S.abil : S.hyper;
+  if (kind === 'abil') S.abil = { grade: 0, lines: [] }; else S.hyper = {};
+  const without = totals().power;
+  if (kind === 'abil') S.abil = keep; else S.hyper = keep;
+  return now - without;
+}
+function renderPanel() {
+  const el = $('#modal');
+  el.classList.remove('hidden');
+  let body;
+  if (M.panel === 'abil') {
+    const A = S.abil, g = A.grade, nl = M.locks.filter(Boolean).length;
+    body = `<h3>어빌리티 <span class="gt${g}">[${GRADES[g]}]</span></h3>
+      <div class="abil-lines">${A.lines.map((l, i) => `<label class="abil-line ${M.locks[i] ? 'on' : ''}">
+        <input type="checkbox" data-alock="${i}" ${M.locks[i] ? 'checked' : ''}>
+        <span class="badge b${l.g}">${GRADE_LETTER[l.g]}</span> ${abilText(l)}</label>`).join('')}</div>
+      <div class="actions"><button class="primary" data-act="abilRoll" ${nl >= 3 ? 'disabled' : ''}>재설정 (명성치 ${fmt(ABIL_COST[Math.min(nl, 2)])})</button></div>
+      <p class="muted small">체크한 줄은 잠가서 유지돼요 (명성치 추가). 등급업 확률: 레어→에픽 15% · 에픽→유니크 4.5% · 유니크→레전드리 1%. 전투력에는 ${cls.main} · ${ATT_NAME()} · 보스 데미지 줄이 반영돼요.</p>`;
+  } else {
+    const used = hyperUsed(), total = hyperTotal();
+    body = `<h3>하이퍼 스탯 <span class="muted small">포인트 ${used} / ${total} (남은 ${total - used})</span></h3>
+      <div class="hyper-list">${HYPER.map(h => {
+        const lv = hyperLv(h.k), can = lv < 15 && used + HYPER_COST[lv] <= total;
+        return `<div class="hyper-row">
+          <span>${h.n()}</span><b>Lv.${lv}</b><span class="hv">+${lv ? h.val(lv) : 0}${h.u}</span>
+          <button class="sm" data-act="hyper" data-k="${h.k}" data-d="-1" ${lv ? '' : 'disabled'}>−</button>
+          <button class="sm primary" data-act="hyper" data-k="${h.k}" data-d="1" ${can ? '' : 'disabled'}>+</button>
+          <span class="muted small">${lv < 15 ? `다음 ${HYPER_COST[lv]}P` : 'MAX'}</span></div>`;
+      }).join('')}</div>
+      <div class="actions"><button data-act="hyperReset" ${used ? '' : 'disabled'}>초기화</button></div>
+      <p class="muted small">Lv.140부터 레벨업마다 포인트를 받아요 (140~149: 3P, 10레벨마다 +1P). 최대 Lv.15.</p>`;
+  }
+  el.innerHTML = `<div class="sheet">
+    <button class="x" data-act="close">✕</button>
+    ${body}
+    <div class="pw">전투력 기여 <b>${diffHtml(panelContrib(M.panel))}</b></div>
+    ${M.msg ? `<div class="msg ${M.msgCls}">${M.msg}</div>` : ''}
+    <p class="muted small">수치는 근사치예요.</p>
+  </div>`;
+}
+
 // ===== 이벤트 =====
 function closeModal() { if (M && M.fauto) clearInterval(M.fauto.timer); if (M && M.chaosAuto) clearInterval(M.chaosAuto.timer); if (M && M.auto) clearInterval(M.auto.timer); if (M && M.sfAuto) clearInterval(M.sfAuto.timer); M = null; renderModal(); refresh(); }
 function refresh() { save(); renderModal(); renderMain(); }
@@ -1339,6 +1451,20 @@ document.addEventListener('click', e => {
       if (symUp(sy)) toast(`${sy.name} Lv.${symOf(sy.id).lv}!`); refresh(); break;
     }
     case 'symAll': SYMBOLS.forEach(symDaily); refresh(); break;
+    case 'panel': M = { panel: b.dataset.panel, locks: [false, false, false], msg: '', msgCls: '' }; renderModal(); break;
+    case 'abilRoll': {
+      const prev = S.abil.grade, g = rollAbil(M.locks);
+      if (g == null) return;
+      setMsg(g > prev ? `✨ 등급 상승! ${GRADES[g]}` : '어빌리티 재설정', g > prev ? 'ok' : '');
+      refresh(); break;
+    }
+    case 'hyper': {
+      const k = b.dataset.k, lv = hyperLv(k);
+      if (+b.dataset.d > 0 && lv < 15 && hyperUsed() + HYPER_COST[lv] <= hyperTotal()) S.hyper[k] = lv + 1;
+      else if (+b.dataset.d < 0 && lv) S.hyper[k] = lv - 1;
+      refresh(); break;
+    }
+    case 'hyperReset': S.hyper = {}; refresh(); break;
     case 'rmCustom':
       if (!confirm('등록한 아이템을 목록에서 지울까요?')) return;
       if (S.inv.some(i => i.id === b.dataset.id)) { toast('갖고 있는 아이템이라 지울 수 없어요'); return; }
@@ -1376,6 +1502,7 @@ document.addEventListener('input', e => {
   if (e.target.id === 'q') { UI.q = e.target.value; $('#results').innerHTML = resultsHtml(); }
 });
 document.addEventListener('change', e => {
+  if (e.target.dataset && e.target.dataset.alock && M) { M.locks[+e.target.dataset.alock] = e.target.checked; renderModal(); return; }
   if (e.target.dataset && e.target.dataset.scroll && M) { M.scroll = e.target.dataset.scroll; M.lastScroll = null; M.chaosLast = null; renderModal(); return; }
   if (e.target.dataset && e.target.dataset.fmode && M) { M.fgoal.mode = e.target.value; renderModal(); return; }
   if (e.target.dataset && e.target.dataset.fcond && M) {
@@ -1412,6 +1539,7 @@ setInterval(() => {
     $('#summary').innerHTML = summaryHtml();
     $('#sym').innerHTML = symHtml();
     $('#union').innerHTML = unionHtml();
+    $('.equip').innerHTML = equipHtml();
   }
 }, 1000);
 

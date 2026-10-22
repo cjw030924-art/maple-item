@@ -226,3 +226,12 @@ button.white { background: #e8e8f0; color: #1a1a22; }
 .ex-title { color: #ff4d4d; font-weight: bold; }
 .tt-ex { font-weight: bold; }
 .tt-ex span { display: inline-block; min-width: 150px; }
+
+/* 어빌리티 / 하이퍼 스탯 */
+.slot-txt { font-size: 12px; font-weight: bold; margin-top: 10px; }
+.abil-lines { display: flex; flex-direction: column; gap: 4px; margin: 10px 0; }
+.abil-line { display: flex; align-items: center; gap: 8px; background: #0e1017; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; cursor: pointer; font-weight: bold; }
+.abil-line.on { border-color: var(--accent); }
+.hyper-list { display: flex; flex-direction: column; gap: 4px; margin: 10px 0; }
+.hyper-row { display: grid; grid-template-columns: 1fr 48px 64px auto auto 56px; align-items: center; gap: 6px; background: var(--panel2); border-radius: 8px; padding: 6px 10px; }
+.hyper-row .hv { color: var(--accent); font-weight: bold; text-align: right; }
