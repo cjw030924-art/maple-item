@@ -783,13 +783,13 @@ function tooltipHtml(it) {
       ${rows}
       ${tucOf(t) ? `<div class="tt-row tt-tuc">업그레이드 가능 횟수 : ${scLeft(it)} <span class="muted">(복구 가능 횟수 : ${scOf(it).fail})</span></div>` : ''}
     </div>
+    ${it.pot ? pot('잠재옵션', it.pot) + pot('에디셔널 잠재옵션', it.add) : ''}
     ${exOf(it) ? `<div class="tt-sec">
       <div class="tt-pot-title"><span class="ex-badge">EX</span> <span class="ex-title">익셉셔널 : ${exOf(it)}회</span></div>
       <div class="tt-ex"><span>올스탯</span>: +${t.exStat * exOf(it)}</div>
       <div class="tt-ex"><span>최대 HP / 최대 MP</span>: +${1000 * exOf(it)}</div>
       <div class="tt-ex"><span>공격력 / 마력</span>: +${t.exAtt * exOf(it)}</div>
     </div>` : ''}
-    ${it.pot ? pot('잠재옵션', it.pot) + pot('에디셔널 잠재옵션', it.add) : ''}
     ${powerBlock(it)}
   </div>`;
 }
