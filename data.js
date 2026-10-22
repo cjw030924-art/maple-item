@@ -121,6 +121,10 @@ ITEMS.find(t => t.id === '광휘-굶주리는 핏빛 원혼').icon = 'icons/radi
 ITEMS.find(t => t.id === '광휘-굶주리는 핏빛 원혼').tuc = 5;
 ITEMS.filter(t => t.set === '미트라').forEach(t => (t.icon = 'icons/mitra.png'));
 
+// 펫장비 (기본 스탯 없음, 펫장비 주문서로만 강화 · 업그레이드 9회, 근사치)
+ITEMS.push({ id: '펫장비', name: '펫장비', set: '펫장비', slot: '펫장비', level: 0, group: 'all',
+  s: { STR: 0, DEX: 0, INT: 0, LUK: 0 }, pad: 0, mad: 0, tuc: 9 });
+
 // 데스티니 무기 (22성 고정 → 25성까지, 15% 주문서 완료 상태)
 ITEMS.push(...DESTINY_DATA);
 
