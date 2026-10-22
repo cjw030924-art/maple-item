@@ -226,3 +226,15 @@ button.white { background: #e8e8f0; color: #1a1a22; }
 .ex-title { color: #ff4d4d; font-weight: bold; }
 .tt-ex { font-weight: bold; }
 .tt-ex span { display: inline-block; min-width: 150px; }
+
+/* 펫 */
+.layout3 { padding: 0 16px 24px; }
+.pet-slots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.pet-slot { background: #1b1b1b; border: 1.5px solid #3a3a3a; border-radius: 12px; padding: 10px 6px; display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; cursor: pointer; min-width: 0; }
+.pet-slot.empty { cursor: default; opacity: .6; }
+.pet-ico { width: 36px; height: 36px; font-size: 26px; line-height: 36px; text-align: center; flex-shrink: 0; }
+.pet-ico.lg { width: 56px; height: 56px; font-size: 42px; line-height: 56px; }
+.pet-ico.xl { width: 72px; height: 72px; font-size: 56px; line-height: 72px; }
+.pet-draw { display: flex; flex-wrap: wrap; gap: 6px 12px; background: #0e1017; border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; font-weight: bold; }
+.pet-pick { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+.pet-inv { max-height: 320px; }

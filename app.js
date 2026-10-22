@@ -57,6 +57,8 @@ function load(name) {
   if (!S.level) S.level = 200;
   S.exp = S.exp || 0;
   S.sym = S.sym || {};
+  S.pets = S.pets || [];
+  S.petEq = (S.petEq || []).filter(uid => S.pets.some(p => p.uid === uid));
   UNION = null;
   cls = CLASSES.find(c => c.name === name);
   // 예전 버전 데이터에 남은 없어진 아이템 정리
@@ -225,7 +227,7 @@ function potPool(cat, edi) {
     add('ALL%', '올스탯', [null, 2, 4, 6]);
     add('ATT', '공격력', [3, 6, 10, 14], ''); add('MATT', '마력', [3, 6, 10, 14], '');
     add('HP%', '최대 HP', [2, 5, 7, 10]);
-    if (cat === 'glove') add('CD%', '크리티컬 데미지', [null, null, null, 1]);
+    if (cat === 'glove') add('CD%', '크리티컬 데미지', [null, null, null, 3]);
   }
   return p;
 }
@@ -402,6 +404,8 @@ function totals(eq = S.eq) {
   }
   const U = getUnion();
   r.att += U.att; r.boss += U.boss;
+  r.pet = petBonus();
+  r.att += r.pet.att;
   r.ied = (1 - keep) * 100;
   r.sym = symStat();
   const BASE_MAIN = 18 + 5 * (S.level - 1), BASE_SUB = 4;
@@ -595,7 +599,8 @@ function renderMain() {
   <div class="layout2">
     <section class="panel" id="sym">${symHtml()}</section>
     <section class="panel" id="union">${unionHtml()}</section>
-  </div>`;
+  </div>
+  <div class="layout3"><section class="panel" id="pet">${petHtml()}</section></div>`;
 }
 const expPct = () => (S.level >= 300 ? 100 : S.exp / expNeed(S.level) * 100);
 function summaryHtml() {
@@ -611,6 +616,7 @@ function summaryHtml() {
     ${box('크리티컬 데미지', r.cd + '%')}
     ${r.radiance ? box('광휘 세트', r.radiance + '세트 효과') : ''}
     ${r.eternal >= 2 ? box('에테르넬 세트', r.eternal + '세트 효과') : ''}
+    ${r.pet.att ? box(`펫 ${ATT_NAME()}`, '+' + fmt(r.pet.att)) : ''}
     ${box('사용 메소', fmtMeso(L.meso))}
     ${box('스타포스 시도', fmt(L.sf))}
     ${box('파괴', fmt(L.boom))}
@@ -785,6 +791,7 @@ function tooltipHtml(it) {
 function renderModal() {
   const el = $('#modal');
   if (!M) { el.classList.add('hidden'); el.innerHTML = ''; return; }
+  if (M.pet) return renderPetModal();
   const it = findItem(M.uid);
   if (!it) { M = null; return renderModal(); }
   const t = TPL[it.id], k = equippedKey(it.uid);
@@ -1252,6 +1259,151 @@ function tabBody(it, t) {
   return '';
 }
 
+// ===== 펫 =====
+// 등급 / 원더베리 확률 / 같은 등급 펫 2·3마리 세트 효과(공/마) — 수치는 근사치
+const PET_TIERS = [
+  { key: 'normal', name: '일반', rate: 0.6, set: {} },
+  { key: 'wonder', name: '원더블랙', rate: 0.3, set: { 2: 3, 3: 10 } },
+  { key: 'petit', name: '루나 쁘띠', rate: 0.08, set: { 2: 5, 3: 15 } },
+  { key: 'dream', name: '루나 드림', rate: 0.02, set: { 2: 7, 3: 20 } },
+];
+const PETS = [
+  ['pet-dog', '강아지', 0, '🐶'], ['pet-cat', '고양이', 0, '🐱'], ['pet-rabbit', '토끼', 0, '🐰'],
+  ['pet-penguin', '펭귄', 0, '🐧'], ['pet-panda', '판다', 0, '🐼'], ['pet-hamster', '햄스터', 0, '🐹'],
+  ['pet-bkitty', '블랙 키티', 1, '🐈'], ['pet-bbat', '블랙 배트', 1, '🦇'], ['pet-bwolf', '블랙 울프', 1, '🐺'],
+  ['pet-pluna', '쁘띠 루나', 2, '🌙'], ['pet-psol', '쁘띠 솔', 2, '☀️'], ['pet-pstella', '쁘띠 스텔라', 2, '⭐'],
+  ['pet-dpeach', '드림 피치', 3, '🍑'], ['pet-dmilk', '드림 밀크', 3, '🥛'], ['pet-dsoda', '드림 소다', 3, '🫧'],
+].map(([id, name, tier, icon]) => ({ id, name, tier, icon }));
+const PET_TPL = Object.fromEntries(PETS.map(p => [p.id, p]));
+const PET_MAX = 3, PET_TUC = 9;
+// 펫장비 주문서 (직업에 맞게 공격력 또는 마력)
+const PET_SCROLLS = [
+  { id: 'p100', name: '펫장비 {} 주문서 100%', rate: 1, lo: 2, hi: 2 },
+  { id: 'p60', name: '펫장비 {} 주문서 60%', rate: 0.6, lo: 3, hi: 3 },
+  { id: 'prem', name: '프리미엄 펫장비 {} 주문서 50%', rate: 0.5, lo: 4, hi: 6 },
+];
+const petOf = uid => S.pets.find(p => p.uid === uid);
+const petTier = p => PET_TIERS[PET_TPL[p.id].tier];
+const petAtt = p => scOf(p)[cls.main === 'INT' ? 'mad' : 'pad'];
+const petLeft = p => PET_TUC + scOf(p).hammer - scOf(p).up - scOf(p).fail;
+const petIco = (T, c = 'pet-ico') => `<span class="${c}">${T.icon}</span>`;
+function petBonus() {
+  const act = S.petEq.map(petOf).filter(Boolean);
+  const r = { att: act.reduce((a, p) => a + petAtt(p), 0), sets: [] };
+  PET_TIERS.forEach((T, i) => {
+    const n = act.filter(p => PET_TPL[p.id].tier === i).length, v = T.set[n];
+    if (v) { r.att += v; r.sets.push(`${T.name} ${n}세트 +${v}`); }
+  });
+  return r;
+}
+function addPet(id) {
+  const p = { uid: S.uid++, id };
+  S.pets.push(p);
+  if (S.petEq.length < PET_MAX) S.petEq.push(p.uid);
+  return p;
+}
+// 원더베리: 등급을 확률로 고른 뒤 그 등급 펫 중 하나
+function drawPets(n) {
+  const w = Object.fromEntries(PET_TIERS.map((T, i) => [i, T.rate]));
+  S.log.berry = (S.log.berry || 0) + n;
+  return Array.from({ length: n }, () => { const g = wpick(w); return addPet(pick(PETS.filter(p => p.tier === g)).id); });
+}
+function togglePet(uid) {
+  if (S.petEq.includes(uid)) { S.petEq = S.petEq.filter(u => u !== uid); return true; }
+  if (S.petEq.length >= PET_MAX) return false;
+  S.petEq.push(uid); return true;
+}
+function usePetScroll(p, sid) {
+  const sr = PET_SCROLLS.find(x => x.id === sid), sc = scOf(p);
+  if (!sr || petLeft(p) <= 0) return null;
+  S.log.petScroll = (S.log.petScroll || 0) + 1;
+  if (rnd() < sr.rate) { sc[cls.main === 'INT' ? 'mad' : 'pad'] += sr.lo + Math.floor(rnd() * (sr.hi - sr.lo + 1)); sc.up++; return 'success'; }
+  sc.fail++; return 'fail';
+}
+function petHtml() {
+  const P = petBonus(), act = S.petEq.map(petOf).filter(Boolean);
+  const slots = Array.from({ length: PET_MAX }, (_, i) => {
+    const p = act[i];
+    if (!p) return '<div class="pet-slot empty"><span class="plus">+</span><span class="muted small">빈 자리</span></div>';
+    const T = PET_TPL[p.id];
+    return `<div class="pet-slot g${T.tier}" data-act="petOpen" data-pid="${p.uid}">${petIco(T, 'pet-ico lg')}
+      <b class="gt${T.tier}">${T.name}</b><span class="muted small">${petTier(p).name} · ${ATT_NAME()} +${petAtt(p)}</span></div>`;
+  }).join('');
+  const last = (UI.petLast || []).map(petOf).filter(Boolean);
+  return `<h2>펫 <span class="muted small">최대 ${PET_MAX}마리 · ${ATT_NAME()} +${fmt(P.att)}${P.sets.length ? ' · ' + P.sets.join(', ') : ''}</span></h2>
+  <div class="pet-slots">${slots}</div>
+  <div class="actions">
+    <button class="primary" data-act="berry" data-n="1">원더베리 1회</button>
+    <button data-act="berry" data-n="10">원더베리 10회</button>
+    <span class="muted small">일반 60% · 원더블랙 30% · 루나 쁘띠 8% · 루나 드림 2% · 지금까지 ${fmt(S.log.berry || 0)}회</span>
+  </div>
+  ${last.length ? `<div class="pet-draw">${last.map(p => { const T = PET_TPL[p.id]; return `<span class="gt${T.tier}">${T.icon} ${T.name}</span>`; }).join('')}</div>` : ''}
+  <details class="custom">
+    <summary>펫 직접 고르기</summary>
+    <div class="pet-pick">${PETS.map(T => `<button class="sm" data-act="petAdd" data-id="${T.id}">${T.icon} <span class="gt${T.tier}">${T.name}</span> <span class="muted small">${PET_TIERS[T.tier].name}</span></button>`).join('')}</div>
+  </details>
+  <div class="inv pet-inv">${S.pets.length ? [...S.pets].reverse().map(p => {
+    const T = PET_TPL[p.id], on = S.petEq.includes(p.uid);
+    return `<div class="row-item">
+      <div class="clickable with-icon" data-act="petOpen" data-pid="${p.uid}">${petIco(T)}<div>
+        <b class="gt${T.tier}">${T.name}</b>
+        <div class="muted small">${petTier(p).name} · 펫장비 ${ATT_NAME()} +${petAtt(p)} · 남은 업횟 ${petLeft(p)}${on ? ' · <span class="eqd">함께하는 중</span>' : ''}</div>
+      </div></div>
+      <div class="btns">
+        <button class="sm" data-act="petOpen" data-pid="${p.uid}">펫장비 강화</button>
+        <button class="sm" data-act="petEquip" data-pid="${p.uid}">${on ? '해제' : '함께하기'}</button>
+      </div></div>`;
+  }).join('') : '<p class="muted">아직 펫이 없어요. 원더베리를 돌리거나 직접 골라 보세요.</p>'}</div>
+  <p class="muted small">같은 등급 펫을 2마리/3마리 함께하면 세트 효과(${ATT_NAME()})가 붙어요: ${PET_TIERS.filter(T => T.set[3]).map(T => `${T.name} +${T.set[2]}/+${T.set[3]}`).join(' · ')}. 수치는 근사치예요.</p>`;
+}
+function renderPetModal() {
+  const el = $('#modal'), p = petOf(M.pet);
+  if (!p) { M = null; return renderModal(); }
+  const T = PET_TPL[p.id], sc = scOf(p), left = petLeft(p), on = S.petEq.includes(p.uid), A = ATT_NAME();
+  if (!M.scroll || !PET_SCROLLS.some(x => x.id === M.scroll)) M.scroll = PET_SCROLLS[0].id;
+  el.classList.remove('hidden');
+  el.innerHTML = `
+  <div class="sheet wide">
+    <button class="x" data-act="close">✕</button>
+    <div class="tooltip">
+      <div class="tt-name">${T.name}</div>
+      <div class="tt-grade">(${PET_TIERS[T.tier].name} 펫)</div>
+      <div class="tt-sec tt-top">
+        <div class="tt-icon g${T.tier}">${petIco(T, 'pet-ico xl')}</div>
+        <div class="tt-req">${on ? '<span class="eqd">함께하는 중</span>' : '<span class="muted">쉬는 중</span>'}</div>
+      </div>
+      <div class="tt-sec">
+        <div class="tt-row">장비분류 : 펫장비</div>
+        ${[['공격력', 'pad'], ['마력', 'mad']].map(([n, k]) => sc[k] ? `<div class="tt-row"><span class="tt-boost">${n} : +${sc[k]}</span> <span class="tt-break">( 0 <i class="sc-c">+${sc[k]}</i> )</span></div>` : '').join('')}
+        <div class="tt-row tt-tuc">업그레이드 가능 횟수 : ${left} <span class="muted">(복구 가능 횟수 : ${sc.fail})</span></div>
+        ${sc.hammer ? '<div class="tt-row tt-tuc">황금망치 제련 적용</div>' : ''}
+      </div>
+    </div>
+    <div class="enhance">
+      <h3>펫장비 강화</h3>
+      <div class="sf-head">남은 업그레이드 가능 횟수 <b>${left}</b> <span class="muted small">(성공 ${sc.up} · 실패 ${sc.fail})</span></div>
+      <div class="scroll-list">${PET_SCROLLS.map(x => `<label class="scroll ${M.scroll === x.id ? 'on' : ''}">
+        <input type="radio" name="scroll" data-scroll="${x.id}" ${M.scroll === x.id ? 'checked' : ''}>
+        <span><b>${x.name.replace('{}', A)}</b><br><span class="muted small">성공 ${Math.round(x.rate * 100)}% · ${A} +${x.lo}${x.hi > x.lo ? '~' + x.hi : ''}</span></span></label>`).join('')}</div>
+      <div class="actions">
+        <button class="primary" data-act="petScroll" ${left > 0 ? '' : 'disabled'}>주문서 사용</button>
+        <button data-act="petScrollAll" ${left > 0 ? '' : 'disabled'}>남은 횟수 전부 사용</button>
+      </div>
+      <div class="actions">
+        <button class="sm" data-act="petTool" data-tool="hammer" ${sc.hammer ? 'disabled' : ''}>황금 망치 (50%)</button>
+        <button class="sm" data-act="petTool" data-tool="white" ${sc.fail ? '' : 'disabled'}>순백의 주문서 (10%)</button>
+        <button class="sm" data-act="petTool" data-tool="innocent">이노센트 주문서 (50%)</button>
+      </div>
+      <p class="muted small">실패하면 업그레이드 횟수가 1 줄어요. 펫장비 기본 업그레이드 횟수는 ${PET_TUC}회예요. 수치는 근사치예요.</p>
+      ${M.msg ? `<div class="msg ${M.msgCls}">${M.msg}</div>` : ''}
+      <div class="foot">
+        <button data-act="petEquip" data-pid="${p.uid}">${on ? '함께하기 해제' : '함께하기'}</button>
+        <button class="danger" data-act="petDel" data-pid="${p.uid}">펫 보내기</button>
+      </div>
+    </div>
+  </div>`;
+}
+
 // ===== 이벤트 =====
 function closeModal() { if (M && M.fauto) clearInterval(M.fauto.timer); if (M && M.chaosAuto) clearInterval(M.chaosAuto.timer); if (M && M.auto) clearInterval(M.auto.timer); if (M && M.sfAuto) clearInterval(M.sfAuto.timer); M = null; renderModal(); refresh(); }
 function refresh() { save(); renderModal(); renderMain(); }
@@ -1334,6 +1486,35 @@ document.addEventListener('click', e => {
       if (symUp(sy)) toast(`${sy.name} Lv.${symOf(sy.id).lv}!`); refresh(); break;
     }
     case 'symAll': SYMBOLS.forEach(symDaily); refresh(); break;
+    case 'berry': {
+      const got = drawPets(+b.dataset.n || 1);
+      UI.petLast = got.map(p => p.uid);
+      const best = got.reduce((a, p) => (PET_TPL[p.id].tier > PET_TPL[a.id].tier ? p : a));
+      toast(`${PET_TPL[best.id].icon} ${PET_TPL[best.id].name}${got.length > 1 ? ` 외 ${got.length - 1}마리` : ''} 획득!`);
+      save(); renderMain(); break;
+    }
+    case 'petAdd': { const p = addPet(b.dataset.id); toast(`${PET_TPL[p.id].name} 데려왔어요!`); save(); renderMain(); break; }
+    case 'petOpen': M = { pet: +b.dataset.pid, msg: '', msgCls: '' }; renderModal(); break;
+    case 'petEquip':
+      if (!togglePet(+b.dataset.pid)) { toast(`펫은 최대 ${PET_MAX}마리까지 함께할 수 있어요`); return; }
+      refresh(); break;
+    case 'petScroll': {
+      const r = usePetScroll(petOf(M.pet), M.scroll);
+      setMsg(r === 'success' ? '펫장비 주문서 성공!' : r === 'fail' ? '펫장비 주문서 실패 (업그레이드 횟수 -1)' : '남은 횟수가 없어요.', r === 'success' ? 'ok' : 'bad');
+      refresh(); break;
+    }
+    case 'petScrollAll': {
+      let ok = 0, ng = 0, r;
+      while ((r = usePetScroll(petOf(M.pet), M.scroll))) r === 'success' ? ok++ : ng++;
+      setMsg(`성공 ${ok}회 · 실패 ${ng}회`, ok ? 'ok' : 'bad'); refresh(); break;
+    }
+    case 'petTool': setMsg(useTool(petOf(M.pet), b.dataset.tool)); refresh(); break;
+    case 'petDel': {
+      if (!confirm('이 펫을 보낼까요? 펫장비 강화도 같이 사라져요.')) return;
+      const pid = +b.dataset.pid;
+      S.pets = S.pets.filter(p => p.uid !== pid); S.petEq = S.petEq.filter(u => u !== pid);
+      M = null; refresh(); break;
+    }
     case 'rmCustom':
       if (!confirm('등록한 아이템을 목록에서 지울까요?')) return;
       if (S.inv.some(i => i.id === b.dataset.id)) { toast('갖고 있는 아이템이라 지울 수 없어요'); return; }
