@@ -57,7 +57,7 @@ function load(name) {
   if (!S.level) S.level = 200;
   S.exp = S.exp || 0;
   S.sym = S.sym || {};
-  S.pets = S.pets || [];
+  S.pets = (S.pets || []).map(p => ({ ...p, id: PET_OLD[p.id] || p.id })).filter(p => PET_TPL[p.id]);
   S.petEq = (S.petEq || []).filter(uid => S.pets.some(p => p.uid === uid));
   UNION = null;
   cls = CLASSES.find(c => c.name === name);
@@ -1261,20 +1261,20 @@ function tabBody(it, t) {
 
 // ===== 펫 =====
 // 등급 / 원더베리 확률 / 같은 등급 펫 2·3마리 세트 효과(공/마) — 수치는 근사치
+// 자석펫 시리즈만 (시리즈마다 펫 1종)
 const PET_TIERS = [
-  { key: 'normal', name: '일반', rate: 0.6, set: {} },
-  { key: 'wonder', name: '원더블랙', rate: 0.3, set: { 2: 3, 3: 10 } },
-  { key: 'petit', name: '루나 쁘띠', rate: 0.08, set: { 2: 5, 3: 15 } },
+  { key: 'wonder', name: '원더블랙', rate: 0.7, set: { 2: 3, 3: 10 } },
+  { key: 'petit', name: '루나 쁘띠', rate: 0.2, set: { 2: 5, 3: 15 } },
+  { key: 'sweet', name: '루나 스윗', rate: 0.08, set: { 2: 6, 3: 18 } },
   { key: 'dream', name: '루나 드림', rate: 0.02, set: { 2: 7, 3: 20 } },
 ];
-const PETS = [
-  ['pet-dog', '강아지', 0, '🐶'], ['pet-cat', '고양이', 0, '🐱'], ['pet-rabbit', '토끼', 0, '🐰'],
-  ['pet-penguin', '펭귄', 0, '🐧'], ['pet-panda', '판다', 0, '🐼'], ['pet-hamster', '햄스터', 0, '🐹'],
-  ['pet-bkitty', '블랙 키티', 1, '🐈'], ['pet-bbat', '블랙 배트', 1, '🦇'], ['pet-bwolf', '블랙 울프', 1, '🐺'],
-  ['pet-pluna', '쁘띠 루나', 2, '🌙'], ['pet-psol', '쁘띠 솔', 2, '☀️'], ['pet-pstella', '쁘띠 스텔라', 2, '⭐'],
-  ['pet-dpeach', '드림 피치', 3, '🍑'], ['pet-dmilk', '드림 밀크', 3, '🥛'], ['pet-dsoda', '드림 소다', 3, '🫧'],
-].map(([id, name, tier, icon]) => ({ id, name, tier, icon }));
+const PETS = [['pet-wonder', 0, '🖤'], ['pet-petit', 1, '🌙'], ['pet-sweet', 2, '🍬'], ['pet-dream', 3, '✨']]
+  .map(([id, tier, icon]) => ({ id, name: PET_TIERS[tier].name, tier, icon }));
 const PET_TPL = Object.fromEntries(PETS.map(p => [p.id, p]));
+// 예전 버전 펫 → 시리즈로 (일반 펫은 삭제)
+const PET_OLD = { 'pet-bkitty': 'pet-wonder', 'pet-bbat': 'pet-wonder', 'pet-bwolf': 'pet-wonder',
+  'pet-pluna': 'pet-petit', 'pet-psol': 'pet-petit', 'pet-pstella': 'pet-petit',
+  'pet-dpeach': 'pet-dream', 'pet-dmilk': 'pet-dream', 'pet-dsoda': 'pet-dream' };
 const PET_MAX = 3, PET_TUC = 9;
 // 펫장비 주문서 (직업에 맞게 공격력 또는 마력)
 const PET_SCROLLS = [
@@ -1283,7 +1283,6 @@ const PET_SCROLLS = [
   { id: 'prem', name: '프리미엄 펫장비 {} 주문서 50%', rate: 0.5, lo: 4, hi: 6 },
 ];
 const petOf = uid => S.pets.find(p => p.uid === uid);
-const petTier = p => PET_TIERS[PET_TPL[p.id].tier];
 const petAtt = p => scOf(p)[cls.main === 'INT' ? 'mad' : 'pad'];
 const petLeft = p => PET_TUC + scOf(p).hammer - scOf(p).up - scOf(p).fail;
 const petIco = (T, c = 'pet-ico') => `<span class="${c}">${T.icon}</span>`;
@@ -1327,7 +1326,7 @@ function petHtml() {
     if (!p) return '<div class="pet-slot empty"><span class="plus">+</span><span class="muted small">빈 자리</span></div>';
     const T = PET_TPL[p.id];
     return `<div class="pet-slot g${T.tier}" data-act="petOpen" data-pid="${p.uid}">${petIco(T, 'pet-ico lg')}
-      <b class="gt${T.tier}">${T.name}</b><span class="muted small">${petTier(p).name} · ${ATT_NAME()} +${petAtt(p)}</span></div>`;
+      <b class="gt${T.tier}">${T.name}</b><span class="muted small">자석펫 · ${ATT_NAME()} +${petAtt(p)}</span></div>`;
   }).join('');
   const last = (UI.petLast || []).map(petOf).filter(Boolean);
   return `<h2>펫 <span class="muted small">최대 ${PET_MAX}마리 · ${ATT_NAME()} +${fmt(P.att)}${P.sets.length ? ' · ' + P.sets.join(', ') : ''}</span></h2>
@@ -1335,26 +1334,26 @@ function petHtml() {
   <div class="actions">
     <button class="primary" data-act="berry" data-n="1">원더베리 1회</button>
     <button data-act="berry" data-n="10">원더베리 10회</button>
-    <span class="muted small">일반 60% · 원더블랙 30% · 루나 쁘띠 8% · 루나 드림 2% · 지금까지 ${fmt(S.log.berry || 0)}회</span>
+    <span class="muted small">${PET_TIERS.map(T => `${T.name} ${Math.round(T.rate * 100)}%`).join(' · ')} · 지금까지 ${fmt(S.log.berry || 0)}회</span>
   </div>
   ${last.length ? `<div class="pet-draw">${last.map(p => { const T = PET_TPL[p.id]; return `<span class="gt${T.tier}">${T.icon} ${T.name}</span>`; }).join('')}</div>` : ''}
   <details class="custom">
     <summary>펫 직접 고르기</summary>
-    <div class="pet-pick">${PETS.map(T => `<button class="sm" data-act="petAdd" data-id="${T.id}">${T.icon} <span class="gt${T.tier}">${T.name}</span> <span class="muted small">${PET_TIERS[T.tier].name}</span></button>`).join('')}</div>
+    <div class="pet-pick">${PETS.map(T => `<button class="sm" data-act="petAdd" data-id="${T.id}">${T.icon} <span class="gt${T.tier}">${T.name}</span></button>`).join('')}</div>
   </details>
   <div class="inv pet-inv">${S.pets.length ? [...S.pets].reverse().map(p => {
     const T = PET_TPL[p.id], on = S.petEq.includes(p.uid);
     return `<div class="row-item">
       <div class="clickable with-icon" data-act="petOpen" data-pid="${p.uid}">${petIco(T)}<div>
         <b class="gt${T.tier}">${T.name}</b>
-        <div class="muted small">${petTier(p).name} · 펫장비 ${ATT_NAME()} +${petAtt(p)} · 남은 업횟 ${petLeft(p)}${on ? ' · <span class="eqd">함께하는 중</span>' : ''}</div>
+        <div class="muted small">자석펫 · 펫장비 ${ATT_NAME()} +${petAtt(p)} · 남은 업횟 ${petLeft(p)}${on ? ' · <span class="eqd">함께하는 중</span>' : ''}</div>
       </div></div>
       <div class="btns">
         <button class="sm" data-act="petOpen" data-pid="${p.uid}">펫장비 강화</button>
         <button class="sm" data-act="petEquip" data-pid="${p.uid}">${on ? '해제' : '함께하기'}</button>
       </div></div>`;
   }).join('') : '<p class="muted">아직 펫이 없어요. 원더베리를 돌리거나 직접 골라 보세요.</p>'}</div>
-  <p class="muted small">같은 등급 펫을 2마리/3마리 함께하면 세트 효과(${ATT_NAME()})가 붙어요: ${PET_TIERS.filter(T => T.set[3]).map(T => `${T.name} +${T.set[2]}/+${T.set[3]}`).join(' · ')}. 수치는 근사치예요.</p>`;
+  <p class="muted small">같은 시리즈 펫을 2마리/3마리 함께하면 세트 효과(${ATT_NAME()})가 붙어요: ${PET_TIERS.map(T => `${T.name} +${T.set[2]}/+${T.set[3]}`).join(' · ')}. 수치는 근사치예요.</p>`;
 }
 function renderPetModal() {
   const el = $('#modal'), p = petOf(M.pet);
@@ -1367,7 +1366,7 @@ function renderPetModal() {
     <button class="x" data-act="close">✕</button>
     <div class="tooltip">
       <div class="tt-name">${T.name}</div>
-      <div class="tt-grade">(${PET_TIERS[T.tier].name} 펫)</div>
+      <div class="tt-grade">(자석펫)</div>
       <div class="tt-sec tt-top">
         <div class="tt-icon g${T.tier}">${petIco(T, 'pet-ico xl')}</div>
         <div class="tt-req">${on ? '<span class="eqd">함께하는 중</span>' : '<span class="muted">쉬는 중</span>'}</div>
