@@ -58,6 +58,7 @@ function load(name) {
   S.exp = S.exp || 0;
   S.sym = S.sym || {};
   delete S.pets; delete S.petEq; // 예전 펫 기능 데이터
+  S.inv.forEach(i => { if (i.id === '펫장비') i.id = '1802653'; }); // 예전 펫장비 → 루나 크리스탈 키
   UNION = null;
   cls = CLASSES.find(c => c.name === name);
   // 예전 버전 데이터에 남은 없어진 아이템 정리
