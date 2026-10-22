@@ -141,6 +141,9 @@ ITEMS.push({ id: '하트-컴플리트 언더컨트롤', name: '컴플리트 언�
   const t = ITEMS.find(x => x.id === id || x.name === id.replace(/^[^-]+-/, ''));
   if (t) Object.assign(t, { exMax: max, exStat: 20, exAtt: 15 });
 });
+// 반지·하트를 뺀 장신구(얼굴/눈/귀고리/펜던트)는 전부 익셉셔널 1회 (근사치)
+ITEMS.filter(t => ['얼굴', '눈', '귀고리', '펜던트'].includes(t.slot) && !t.exMax)
+  .forEach(t => Object.assign(t, { exMax: 1, exStat: 20, exAtt: 15 }));
 // 불멸의 유산: 훈장이지만 추가옵션 가능
 ITEMS.find(t => t.id === '광휘-불멸의 유산').flameOk = true;
 
