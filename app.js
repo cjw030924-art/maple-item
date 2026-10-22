@@ -378,6 +378,18 @@ function itemStats(it) {
     else if (l.k === 'IED%') r.ied.push(l.val);
     else if (l.k === 'CD%') r.cd += l.val;
   }));
+  const so = it.soul;
+  if (so) {
+    const [, v] = SOUL_OPTS[so.opt];
+    r.att += SOUL_ATT;
+    if (so.opt === A + '%') r.attPct += v;
+    else if (so.opt === 'BOSS%') r.boss += v;
+    else if (so.opt === 'IED%') r.ied.push(v);
+    if (so.pot && so.amp) so.pot.lines.forEach(l => {
+      if (l.k === cls.main + '%') r.mainPct += soulVal(so, l);
+      else if (l.k === A + '%') r.attPct += soulVal(so, l);
+    });
+  }
   return r;
 }
 const getIt = v => (typeof v === 'object' ? v : findItem(v));
@@ -721,6 +733,7 @@ function modalTabs(t) {
   const r = [];
   if (tucOf(t)) r.push(['scroll', '주문서']);
   if (t.exMax) r.push(['ex', '익셉셔널']);
+  if (t.slot === '무기') r.push(['soul', '소울']);
   if ((t.astra || SF_OK(t.slot))) r.push(['sf', '스타포스']);
   if (POT_CAT[t.slot]) r.push(['pot', '잠재능력'], ['add', '에디셔널']);
   if ((t.flameOk || FLAME_OK(t.slot))) r.push(['flame', '추가옵션']);
@@ -772,6 +785,7 @@ function tooltipHtml(it) {
     ${p.lines.map(l => `<div>${lineText(l)}</div>`).join('')}</div>`;
   return `<div class="tooltip">
     ${(t.astra || SF_OK(t.slot)) ? `<div class="stars">${starsHtml(it, t)}</div>` : ''}
+    ${it.soul ? `<div class="tt-soul-name">위대한 ${it.soul.boss}의</div>` : ''}
     <div class="tt-name">${t.name}${it.star ? ` (+${it.star})` : ''}</div>
     ${g >= 0 ? `<div class="tt-grade">(${GRADES[g]} 아이템)</div>` : ''}
     <div class="tt-sec tt-top">
@@ -784,6 +798,12 @@ function tooltipHtml(it) {
       ${tucOf(t) ? `<div class="tt-row tt-tuc">업그레이드 가능 횟수 : ${scLeft(it)} <span class="muted">(복구 가능 횟수 : ${scOf(it).fail})</span></div>` : ''}
     </div>
     ${it.pot ? pot('잠재옵션', it.pot) + pot('에디셔널 잠재옵션', it.add) : ''}
+    ${it.soul ? `<div class="tt-sec">
+      <div class="soul-c">위대한 ${it.soul.boss}의 소울 적용</div>
+      <div>${soulOptText(it.soul)}</div>
+      ${it.soul.pot && it.soul.amp ? `<div class="tt-pot-title gt${it.soul.pot.grade}" style="margin-top:4px"><span class="badge b${it.soul.pot.grade}">${GRADE_LETTER[it.soul.pot.grade]}</span> 소울 잠재옵션 (증폭 ${it.soul.amp}단계)</div>
+      ${it.soul.pot.lines.map(l => `<div>${soulLineText(it.soul, l)}</div>`).join('')}` : ''}
+    </div>` : ''}
     ${exOf(it) ? `<div class="tt-sec">
       <div class="tt-pot-title"><span class="ex-badge">EX</span> <span class="ex-title">익셉셔널 : ${exOf(it)}회</span></div>
       <div class="tt-ex"><span>올스탯</span>: +${t.exStat * exOf(it)}</div>
@@ -1122,6 +1142,7 @@ function stopAuto(msg) {
 }
 
 function tabBody(it, t) {
+  if (M.tab === 'soul') return soulTab(it, t);
   if (M.tab === 'ex') {
     const n = exOf(it), done = n >= t.exMax;
     return `
@@ -1261,6 +1282,90 @@ function tabBody(it, t) {
     <p class="muted small">${isW ? `무기: ${ATT_NAME()} 단계로 N추를 매겨요 (7단계 = 1추).` : `환산: ${cls.main} 1 = 1점 · 올스탯 1% = 10점 · ${ATT_NAME()} 1 = 4점 (${cls.main}이 들어간 이중 스탯 포함)`} 검환은 BEFORE/AFTER 중 고를 수 있고, 자동일 땐 더 좋을 때만 AFTER를 받아요.</p>`;
   }
   return '';
+}
+
+// ===== 소울 웨폰 =====
+// 증폭·소울 잠재 확률/비용/천장: 넥슨 공식 확률 안내 + 2026.9 개편 기준
+// 위대한 소울 옵션 수치, 소울 잠재 옵션 목록·수치는 근사치 (증폭 4단계 레전 공 8% / 유니크 6% 에 맞춤)
+const SOUL_BOSSES = ['데미안', '루시드', '윌', '진 힐라', '더스크', '듄켈', '검은 마법사', '선택받은 세렌', '감시자 칼로스', '카링'];
+const SOUL_OPTS = { 'ATT%': ['공격력', 3], 'MATT%': ['마력', 3], 'BOSS%': ['보스 몬스터 공격 시 데미지', 7], 'IED%': ['몬스터 방어율 무시', 7] };
+const SOUL_ATT = 20; // 소울 적용 시 공격력/마력
+const SOUL_AMP = [
+  { rate: 0.05, inc: 0.01, pity: 25, meso: 5e8 }, { rate: 0.03, inc: 0.006, pity: 33, meso: 1e9 },
+  { rate: 0.02, inc: 0.004, pity: 43, meso: 1.75e9 }, { rate: 0.015, inc: 0.003, pity: 50, meso: 2.75e9 },
+];
+const SOUL_POT_UP = [0.015, 0.005875, 0.003322], SOUL_POT_PITY = [100, 256, 451];
+const SOUL_POT_COST = [2e7, 4e7, 6.5e7, 8.8e7];
+const SOUL_SUB_SAME = [0.019608, 0.047619, 0.019608, 0.004975]; // 2·3번째 줄이 첫 줄과 같은 등급일 확률 (아니면 한 단계 아래)
+const SOUL_PER = [0.25, 0.5, 1, 1.5, 2]; // 노멀~레전드리, 증폭 1단계당 %
+const SOUL_POT_KEYS = ['STR%', 'DEX%', 'INT%', 'LUK%', 'ATT%', 'MATT%'];
+const gradeName = g => (g < 0 ? '노멀' : GRADES[g]);
+const soulVal = (so, l) => SOUL_PER[l.g + 1] * so.amp;
+const soulOptText = so => `${SOUL_OPTS[so.opt][0]} +${SOUL_OPTS[so.opt][1]}%, ${ATT_NAME()} +${SOUL_ATT}`;
+const soulLineText = (so, l) => `${l.k === 'ATT%' ? '공격력' : l.k === 'MATT%' ? '마력' : l.k.slice(0, -1)} +${soulVal(so, l)}%`;
+const soulAmpRate = so => (so.ampFail >= SOUL_AMP[so.amp].pity - 1 ? 1 : Math.min(1, SOUL_AMP[so.amp].rate + SOUL_AMP[so.amp].inc * so.ampFail));
+function soulLines(g) {
+  return [0, 1, 2].map(i => ({ k: pick(SOUL_POT_KEYS), g: i === 0 || rnd() < SOUL_SUB_SAME[g] ? g : g - 1 }));
+}
+function soulAmp(it) {
+  const so = it.soul;
+  if (!so || so.amp >= 4 || TPL[it.id].level < 200) return null;
+  S.log.meso += SOUL_AMP[so.amp].meso;
+  S.log.soulAmp = (S.log.soulAmp || 0) + 1;
+  if (rnd() < soulAmpRate(so)) {
+    so.amp++; so.ampFail = 0;
+    if (!so.pot) so.pot = { grade: 0, fail: 0, lines: soulLines(0) };
+    return 'success';
+  }
+  so.ampFail++; return 'fail';
+}
+// 천장: 연속 실패가 천장 횟수에 닿으면 확정 등급 상승
+function soulPotRoll(it) {
+  const so = it.soul, p = so && so.pot;
+  if (!p || !so.amp) return null;
+  S.log.meso += SOUL_POT_COST[p.grade];
+  S.log.soulPot = (S.log.soulPot || 0) + 1;
+  if (p.grade < 3) {
+    if (rnd() < SOUL_POT_UP[p.grade] || p.fail + 1 >= SOUL_POT_PITY[p.grade]) { p.grade++; p.fail = 0; } else p.fail++;
+  }
+  p.lines = soulLines(p.grade);
+  return p.grade;
+}
+const soulAttSum = so => so.pot.lines.reduce((a, l) => a + (l.k === ATT_KEY() + '%' ? soulVal(so, l) : 0), 0);
+function soulTab(it, t) {
+  const so = it.soul, sel = (M.soulSel = M.soulSel || { boss: SOUL_BOSSES[0], opt: ATT_KEY() + '%' });
+  let h = `<div class="pot-title">위대한 소울 ${so ? `<span class="soul-c">· 위대한 ${so.boss}의 소울 적용중</span>` : ''}</div>
+    <div class="goal">
+      <select data-soul="boss">${SOUL_BOSSES.map(b => `<option ${sel.boss === b ? 'selected' : ''}>${b}</option>`).join('')}</select>
+      <select data-soul="opt">${Object.entries(SOUL_OPTS).map(([k, [n, v]]) => `<option value="${k}" ${sel.opt === k ? 'selected' : ''}>${n} +${v}%</option>`).join('')}</select>
+      <button class="primary" data-act="soulApply">${so ? '소울 교체' : '소울 적용'}</button>
+    </div>
+    <p class="muted small">소울을 적용하면 선택한 옵션과 ${ATT_NAME()} +${SOUL_ATT}이 붙어요. 교체해도 증폭 단계와 소울 잠재는 유지돼요.</p>`;
+  if (!so) return h;
+  h += '<div class="auto-cube"><div class="pot-title">소울 증폭</div>';
+  if (t.level < 200) h += '<p class="muted small">Lv.200 이상 무기만 증폭할 수 있어요.</p>';
+  else if (so.amp >= 4) h += `<p>증폭 4단계 (MAX) 🎉</p>`;
+  else {
+    const A = SOUL_AMP[so.amp];
+    h += `<div class="sf-head">${so.amp}단계 → <b>${so.amp + 1}단계</b></div>
+      <div class="rates"><span class="ok">성공 ${(soulAmpRate(so) * 100).toFixed(1)}%</span><span class="keep">게이지 ${Math.round(so.ampFail / (A.pity - 1) * 100)}% (실패 ${so.ampFail} / 천장 ${A.pity}회)</span></div>
+      <div>필요 메소 : <b>${fmtMeso(A.meso)}</b> + ${so.amp + 1}단계 소울 에테르</div>
+      <div class="actions"><button class="primary" data-act="soulAmp">증폭</button><button data-act="soulAmpAuto">▶ 성공할 때까지</button></div>`;
+  }
+  h += '</div>';
+  if (so.pot && so.amp) {
+    const p = so.pot, g = (M.soulGoal = M.soulGoal || { grade: 3, min: 0 });
+    h += `<div class="auto-cube">
+      <div class="pot g${p.grade}" style="margin-top:0;border-top:none"><div class="pot-title">소울 잠재옵션 <span class="gt${p.grade}">[${GRADES[p.grade]}]</span> <span class="muted small">증폭 ${so.amp}단계</span></div>
+        ${p.lines.map(l => `<div><span class="badge b${l.g < 0 ? 'n' : l.g}">${l.g < 0 ? 'N' : GRADE_LETTER[l.g]}</span> ${soulLineText(so, l)}</div>`).join('')}</div>
+      <div class="actions"><button class="primary" data-act="soulPot">재설정 (${fmtMeso(SOUL_POT_COST[p.grade])} 메소)</button>
+        ${p.grade < 3 ? `<span class="muted small">등급업 ${(SOUL_POT_UP[p.grade] * 100).toFixed(4).replace(/0+$/, '')}% · 천장 ${p.fail} / ${SOUL_POT_PITY[p.grade]}</span>` : ''}</div>
+      <div class="goal">자동: <select data-sgoal="grade">${GRADES.map((n, i) => `<option value="${i}" ${g.grade == i ? 'selected' : ''}>${n}</option>`).join('')}</select> 이상 ·
+        ${ATT_NAME()}% 합 ≥ <input type="number" min="0" step="0.5" data-sgoal="min" value="${g.min}">
+        <button data-act="soulPotAuto">▶ 될 때까지</button></div>
+    </div>`;
+  }
+  return h + `<p class="muted small">증폭 확률·비용·천장과 소울 잠재 등급업 확률·천장은 실제 게임 기준이에요. 소울 옵션과 소울 잠재 수치는 근사치예요.</p>`;
 }
 
 // ===== 하이퍼 스탯 / 어빌리티 (수치는 근사치) =====
@@ -1448,6 +1553,37 @@ document.addEventListener('click', e => {
       if (symUp(sy)) toast(`${sy.name} Lv.${symOf(sy.id).lv}!`); refresh(); break;
     }
     case 'symAll': SYMBOLS.forEach(symDaily); refresh(); break;
+    case 'soulApply': {
+      const had = it.soul;
+      it.soul = { amp: 0, ampFail: 0, pot: null, ...(it.soul || {}), boss: M.soulSel.boss, opt: M.soulSel.opt };
+      S.log.soul = (S.log.soul || 0) + 1;
+      setMsg(`위대한 ${it.soul.boss}의 소울 ${had ? '교체' : '적용'}!`, 'ok'); refresh(); break;
+    }
+    case 'soulAmp': {
+      const r = soulAmp(it);
+      setMsg(r === 'success' ? `✨ 증폭 성공! ${it.soul.amp}단계` : r === 'fail' ? '증폭 실패 (게이지 상승)' : '증폭할 수 없어요.', r === 'success' ? 'ok' : 'bad');
+      refresh(); break;
+    }
+    case 'soulAmpAuto': {
+      const so = it.soul, from = so.amp, m0 = S.log.meso;
+      let n = 0;
+      while (so.amp === from && soulAmp(it)) n++;
+      setMsg(so.amp > from ? `✨ ${n}번 만에 ${so.amp}단계 성공! (${fmtMeso(S.log.meso - m0)} 메소)` : '증폭할 수 없어요.', so.amp > from ? 'ok' : 'bad');
+      refresh(); break;
+    }
+    case 'soulPot': {
+      const prev = it.soul.pot.grade, g = soulPotRoll(it);
+      setMsg(g > prev ? `✨ 등급 상승! ${GRADES[g]}` : '소울 잠재 재설정', g > prev ? 'ok' : '');
+      refresh(); break;
+    }
+    case 'soulPotAuto': {
+      const so = it.soul, p = so.pot, G = M.soulGoal, m0 = S.log.meso;
+      let n = 0;
+      while (!(p.grade >= G.grade && soulAttSum(so) >= G.min) && n < 200000) { soulPotRoll(it); n++; }
+      const ok = p.grade >= G.grade && soulAttSum(so) >= G.min;
+      setMsg(ok ? `✨ ${fmt(n)}번 만에 목표 달성! (${fmtMeso(S.log.meso - m0)} 메소)` : `${fmt(n)}번 돌렸지만 목표에 못 미쳤어요.`, ok ? 'ok' : 'bad');
+      refresh(); break;
+    }
     case 'panel': M = { panel: b.dataset.panel, locks: [false, false, false], msg: '', msgCls: '' }; renderModal(); break;
     case 'abilRoll': {
       const prev = S.abil.grade, g = rollAbil(M.locks);
@@ -1499,6 +1635,8 @@ document.addEventListener('input', e => {
   if (e.target.id === 'q') { UI.q = e.target.value; $('#results').innerHTML = resultsHtml(); }
 });
 document.addEventListener('change', e => {
+  if (e.target.dataset && e.target.dataset.soul && M) { M.soulSel[e.target.dataset.soul] = e.target.value; return; }
+  if (e.target.dataset && e.target.dataset.sgoal && M) { M.soulGoal[e.target.dataset.sgoal] = +e.target.value; return; }
   if (e.target.dataset && e.target.dataset.alock && M) { M.locks[+e.target.dataset.alock] = e.target.checked; renderModal(); return; }
   if (e.target.dataset && e.target.dataset.scroll && M) { M.scroll = e.target.dataset.scroll; M.lastScroll = null; M.chaosLast = null; renderModal(); return; }
   if (e.target.dataset && e.target.dataset.fmode && M) { M.fgoal.mode = e.target.value; renderModal(); return; }

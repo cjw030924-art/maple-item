@@ -235,3 +235,8 @@ button.white { background: #e8e8f0; color: #1a1a22; }
 .hyper-list { display: flex; flex-direction: column; gap: 4px; margin: 10px 0; }
 .hyper-row { display: grid; grid-template-columns: 1fr 48px 64px auto auto 56px; align-items: center; gap: 6px; background: var(--panel2); border-radius: 8px; padding: 6px 10px; }
 .hyper-row .hv { color: var(--accent); font-weight: bold; text-align: right; }
+
+/* 소울 웨폰 */
+.tt-soul-name { text-align: center; color: #ffcc22; font-weight: bold; margin-top: 4px; }
+.soul-c { color: #ffcc22; font-weight: bold; }
+.badge.bn { background: #bbb; }
