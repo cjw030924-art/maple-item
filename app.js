@@ -781,7 +781,7 @@ function tooltipHtml(it) {
     <div class="tt-sec">
       <div class="tt-row">장비분류 : ${t.slot}</div>
       ${rows}
-      ${tucOf(t) ? `<div class="tt-row tt-tuc">업그레이드 가능 횟수 : ${scLeft(it)} <span class="muted">(복구 가능 횟수 : ${scOf(it).fail})</span></div>${scOf(it).hammer ? '<div class="tt-row tt-tuc">황금망치 제련 적용</div>' : ''}` : ''}
+      ${tucOf(t) ? `<div class="tt-row tt-tuc">업그레이드 가능 횟수 : ${scLeft(it)} <span class="muted">(복구 가능 횟수 : ${scOf(it).fail})</span></div>` : ''}
     </div>
     ${exOf(it) ? `<div class="tt-sec">
       <div class="tt-pot-title"><span class="ex-badge">EX</span> <span class="ex-title">익셉셔널 : ${exOf(it)}회</span></div>
@@ -830,9 +830,11 @@ function potBlock(title, p) {
 }
 // ===== 주문서 =====
 const ACC_SLOTS = ['얼굴', '눈', '귀고리', '반지', '펜던트', '하트'];
-const tucOf = t => (t.tuc != null ? t.tuc : ['보조', '엠블렘', '훈장', '뱃지', '포켓'].includes(t.slot) ? 0 : 5);
-const scOf = it => (it.sc = it.sc || { up: 0, fail: 0, hammer: 0, s: { STR: 0, DEX: 0, INT: 0, LUK: 0 }, pad: 0, mad: 0 });
-const scLeft = it => tucOf(TPL[it.id]) + scOf(it).hammer - scOf(it).up - scOf(it).fail;
+// 황금 망치 삭제(2025.4): 망치를 쓸 수 있던 장비는 업그레이드 가능 횟수 +1 기본 적용 (펫장비 제외)
+const tucBase = t => (t.tuc != null ? t.tuc : ['보조', '엠블렘', '훈장', '뱃지', '포켓'].includes(t.slot) ? 0 : 5);
+const tucOf = t => tucBase(t) + (tucBase(t) && t.slot !== '펫장비' ? 1 : 0);
+const scOf = it => (it.sc = it.sc || { up: 0, fail: 0, s: { STR: 0, DEX: 0, INT: 0, LUK: 0 }, pad: 0, mad: 0 });
+const scLeft = it => tucOf(TPL[it.id]) - scOf(it).up - scOf(it).fail;
 // 주문서 목록 (수치는 120제 이상 기준 근사치)
 function scrollList(t) {
   const m = cls.main, ak = cls.main === 'INT' ? 'mad' : 'pad';
@@ -843,7 +845,8 @@ function scrollList(t) {
     desc: `${ATT_NAME()} +${lo}${hi > lo ? '~' + hi : ''}${stat ? `, ${m} +${stat}` : ''}`,
     apply: sc => { sc[ak] += lo + Math.floor(rnd() * (hi - lo + 1)); sc.s[m] += stat; } });
   const list = [];
-  if (t.slot === '펫장비') return [att('pet100', '펫장비', 1, 2, 2), att('pet60', '펫장비', 0.6, 3, 3), att('petprem', '프리미엄 펫장비', 0.5, 4, 6)]
+  if (t.slot === '펫장비') return [att('pet100', '펫장비', 1, 2, 2), att('pet60', '펫장비', 0.6, 3, 3),
+    att('petprem100', '프리미엄 펫장비', 1, 4, 5), att('petprem', '프리미엄 펫장비', 0.5, 4, 6)]
     .map(x => ({ ...x, name: `${x.name} ${Math.round(x.rate * 100)}%` }));
   // 부위별 주문서 (수치는 근사치)
   if (t.slot === '무기') list.push(trace(100, 1, 3), trace(70, 2, 5), trace(30, 3, 7), trace(15, 4, 9),
@@ -878,18 +881,13 @@ function useScroll(it, sid) {
 }
 function useTool(it, tool) {
   const sc = scOf(it);
-  if (tool === 'hammer') {
-    if (sc.hammer) return '이미 황금 망치를 사용했어요.';
-    if (rnd() < 0.5) { sc.hammer = 1; return '황금 망치 성공! 업그레이드 횟수 +1'; }
-    return '황금 망치 실패';
-  }
   if (tool === 'white') {
     if (!sc.fail) return '복구할 횟수가 없어요.';
     if (rnd() < 0.1) { sc.fail--; return '순백의 주문서 성공! 실패 횟수 1회 복구'; }
     return '순백의 주문서 실패';
   }
   if (tool === 'innocent') {
-    if (rnd() < 0.5) { it.sc = { up: 0, fail: 0, hammer: sc.hammer, s: { STR: 0, DEX: 0, INT: 0, LUK: 0 }, pad: 0, mad: 0 }; return '이노센트 성공! 주문서 강화가 초기화됐어요.'; }
+    if (rnd() < 0.5) { it.sc = { up: 0, fail: 0, s: { STR: 0, DEX: 0, INT: 0, LUK: 0 }, pad: 0, mad: 0 }; return '이노센트 성공! 주문서 강화가 초기화됐어요.'; }
     return '이노센트 실패';
   }
 }
@@ -1172,7 +1170,6 @@ function tabBody(it, t) {
         </div>` : ''}`;
       })()}
       <div class="actions">
-        <button class="sm" data-act="tool" data-tool="hammer" ${sc.hammer ? 'disabled' : ''}>황금 망치 (50%)</button>
         <button class="sm" data-act="tool" data-tool="white" ${sc.fail ? '' : 'disabled'}>순백의 주문서 (10%)</button>
         <button class="sm" data-act="tool" data-tool="innocent">이노센트 주문서 (50%)</button>
       </div>
