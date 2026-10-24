@@ -432,10 +432,13 @@ const getIt = v => (typeof v === 'object' ? v : findItem(v));
 function setCounts(eq = S.eq) {
   const items = [...new Set(Object.values(eq))].map(getIt).filter(Boolean).map(it => TPL[it.id]);
   const lucky = items.some(isLucky);
+  const all = [...new Set(Object.values(eq))].map(getIt).filter(Boolean);
   return Object.entries(SETS).map(([key, st]) => {
     const own = items.filter(t => t.set === key);
-    let n = new Set(own.map(t => (st.by === 'slot' ? t.slot : t.id))).size;
-    const plus = lucky && n >= 3 && !own.some(isLucky) && n < st.max;
+    let n = st.virtual ? S.mlabel || 0
+      : st.by === 'each' ? all.filter(it => TPL[it.id].set === key).length
+      : new Set(own.map(t => (st.by === 'slot' ? t.slot : t.id))).size;
+    const plus = !st.noLucky && lucky && n >= 3 && !own.some(isLucky) && n < st.max;
     if (plus) n++;
     return { key, n: Math.min(st.max, n), lucky: plus };
   }).filter(x => x.n >= 1);
@@ -449,10 +452,11 @@ function totals(eq = S.eq) {
     ['main', 'sub', 'att', 'mainPct', 'attPct', 'boss', 'dmg', 'cd'].forEach(k => (r[k] += s[k]));
     s.ied.forEach(v => (keep *= 1 - v / 100));
   });
-  // 세트 효과 (n세트 달성 시 2세트부터 누적)
+  // 세트 효과 (단계별 누적)
   r.sets = setCounts(eq);
   r.sets.forEach(({ key, n }) => {
-    for (let i = 2; i <= n; i++) {
+    if (key === '루나 쁘띠' && n >= 3) r.att += LUNA_EXTRA * (S.petExtra || 0);
+    for (let i = 1; i <= n; i++) {
       const e = SETS[key].fx[i] || {};
       r.main += e.all || 0; r.sub += e.all || 0; r.att += e.att || 0; r.boss += e.boss || 0; r.cd += e.cd || 0;
       if (e.ied) keep *= 1 - e.ied / 100;
@@ -735,10 +739,14 @@ function setsHtml() {
       const st = SETS[key];
       return `<details class="set-row ${n >= 2 ? '' : 'off'}">
         <summary><span>${st.name}${lucky ? ' <span class="muted small">(럭키 +1)</span>' : ''}</span><b class="set-n">${n}셋</b></summary>
-        <div class="set-fx">${Object.entries(st.fx).map(([i, e]) => `<div class="${+i <= n ? 'on' : ''}"><b>${i}세트</b> ${fxText(e)}</div>`).join('')}</div>
+        <div class="set-fx">${Object.entries(st.fx).map(([i, e]) => `<div class="${+i <= n ? 'on' : ''}"><b>${key === '루나 쁘띠' ? `Lv.${i} (${i}종)` : i + '세트'}</b> ${fxText(e)}</div>`).join('')}</div>
       </details>`;
     }).join('') : '<p class="muted small">착용 중인 세트 아이템이 없어요.</p>'}
-    <p class="muted small">데스티니·제네시스 무기(럭키 아이템)는 3개 이상 착용 중인 모든 세트에 1부위로 포함돼요.</p>`;
+    <div class="set-ctrl">
+      <label>마스터 어밴든 세트 (캐시) <select data-mlabel="1">${[0, 1, 2, 3, 4, 5].map(n => `<option value="${n}" ${(S.mlabel || 0) === n ? 'selected' : ''}>${n ? n + '부위' : '안 입음'}</option>`).join('')}</select></label>
+      <label>추가 보유 루나 쁘띠 펫 <select data-petx="1">${[[0, '없음'], [1, '1종 · 루나 게더링'], [2, '2종 · 게더링+익스텐션']].map(([n, t]) => `<option value="${n}" ${(S.petExtra || 0) === n ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
+    </div>
+    <p class="muted small">데스티니·제네시스 무기(럭키 아이템)는 3개 이상 착용 중인 모든 세트에 1부위로 포함돼요. 펫장비 1칸 = 루나 쁘띠 펫 1종으로 세어요. 루나 게더링·익스텐션(${ATT_NAME()} +${LUNA_EXTRA}씩)은 펫 3종 착용 시 적용돼요.</p>`;
 }
 function equipHtml() {
   return LAYOUT.flat().map(k => {
@@ -1932,6 +1940,8 @@ document.addEventListener('change', e => {
     if (raidUsed() > raidPts()) ACC.union.raid = {}; // 포인트가 줄면 배분 초기화
     refresh(); return;
   }
+  if (e.target.dataset && e.target.dataset.mlabel && S) { S.mlabel = +e.target.value; refresh(); return; }
+  if (e.target.dataset && e.target.dataset.petx && S) { S.petExtra = +e.target.value; refresh(); return; }
   if (e.target.dataset && e.target.dataset.title && S) { S.etc.title = e.target.value || null; refresh(); return; }
   if (e.target.dataset && e.target.dataset.cry && S) {
     const [i, j] = e.target.dataset.cry.split('.').map(Number), c = artCrystal(i), k = e.target.value, dup = c.opts.indexOf(k);

@@ -278,3 +278,6 @@ button.white { background: #e8e8f0; color: #1a1a22; }
 .set-fx { padding: 0 10px 8px; font-size: 12px; line-height: 1.7; color: var(--muted); }
 .set-fx .on { color: var(--text); }
 .set-fx b { display: inline-block; min-width: 44px; }
+.set-ctrl { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 4px; }
+.set-ctrl label { font-size: 12px; color: var(--muted); display: flex; flex-direction: column; gap: 2px; }
+.set-ctrl select { background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; font: inherit; font-size: 12px; }

@@ -184,6 +184,11 @@ const SETS = {
   에테르넬: { name: '에테르넬 세트', fx: ETERNAL_SET, max: 8, by: 'slot' },
   광휘: { name: '광휘의 보스 세트', fx: RADIANCE_SET, max: 6, by: 'id' },
   칠흑: { name: '칠흑의 보스 세트', fx: PITCH_SET, max: 10, by: 'slot' },
+  // 펫장비 1칸 = 펫 1마리 (자석펫 루나 쁘띠, 서로 다른 종류 1·2·3종 → 공/마 +8 / +18 / +36 누적)
+  '루나 쁘띠': { name: '루나 쁘띠 펫 세트', fx: { 1: { att: 8 }, 2: { att: 10 }, 3: { att: 18 } }, max: 3, by: 'each', noLucky: true },
+  // 캐시 마스터라벨 (착용 부위 수는 직접 선택)
+  마라벨: { name: '마스터 어밴든 세트', fx: { 3: { all: 5, att: 3 }, 5: { all: 10, att: 7 } }, max: 5, virtual: true, noLucky: true },
 };
+const LUNA_EXTRA = 15; // 루나 게더링 / 루나 익스텐션 패시브 공/마
 // 럭키 아이템: 3개 이상 착용 중인 모든 세트에 1부위로 포함 (여러 개여도 1개만)
 const isLucky = t => !!(t.destiny || t.set === '제네시스');
