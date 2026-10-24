@@ -728,7 +728,7 @@ function equipHtml() {
     if (k === 'ABIL') return `<div class="slot filled g${S.abil.grade}" data-act="panel" data-panel="abil"><span class="slot-name">어빌리티</span><span class="slot-txt gt${S.abil.grade}">${GRADES[S.abil.grade]}</span></div>`;
     if (k === 'ART') return `<div class="slot filled" data-act="panel" data-panel="art"><span class="slot-name">아티팩트</span><span class="slot-txt">Lv.${S.art.lv}</span></div>`;
     if (k === 'HEXA') return `<div class="slot filled" data-act="panel" data-panel="hexa"><span class="slot-name">헥사 스탯</span><span class="slot-txt">${S.hexa.reduce((a, c) => a + hexaLv(c), 0)} / 60</span></div>`;
-    if (k === 'ETC') return `<div class="slot filled" data-act="panel" data-panel="etc"><span class="slot-name">기타 스탯</span><span class="slot-txt">유챔·공격대</span></div>`;
+    if (k === 'ETC') return `<div class="slot filled" data-act="panel" data-panel="etc"><span class="slot-name">기타 스탯</span><span class="slot-txt">${titleOf() ? '칭호 ✓<br>' : ''}유챔·공격대</span></div>`;
     if (k === 'HYPER') return `<div class="slot filled" data-act="panel" data-panel="hyper"><span class="slot-name">하이퍼 스탯</span><span class="slot-txt">${hyperUsed()} / ${hyperTotal()}</span></div>`;
     if (k === '하의') {
       const top = S.eq['상의'] && findItem(S.eq['상의']);
@@ -1555,11 +1555,31 @@ const raidPts = () => (ACC.union.raidPts != null ? ACC.union.raidPts : raidPtsAu
 const raidUsed = () => Object.values(ACC.union.raid).reduce((a, b) => a + b, 0);
 const ETC_EX = [['flat', () => `${cls.main} (% 미적용)`], ['mainPct', () => `${cls.main} %`], ['att', () => ATT_NAME()], ['attPct', () => ATT_NAME() + ' %'],
   ['dmg', () => '데미지 %'], ['boss', () => '보스 데미지 %'], ['fd', () => '최종 데미지 %'], ['cd', () => '크리티컬 데미지 %'], ['ied', () => '방어율 무시 %']];
+// 칭호: [이름, 보공%, 방무%, 올스탯, 공/마, 크뎀%, 비고] (나무위키·인게임 기준)
+const TITLES = [
+  ['가디언즈 오브 메이플', 35, 35, 60, 30, 0, '14일 · 버그 신고 보상'],
+  ['연합의 신화', 30, 30, 60, 20, 5, '30일 · 일반 몬스터 데미지 +30%'],
+  ['MFF 매니아', 30, 30, 60, 20, 0, '기간 종료 · 일반 몬스터 데미지 +30%'],
+  ['알록달록 메이플', 30, 30, 50, 20, 0, '14일 · 크리티컬 확률 +20%'],
+  ['유니온 아레나 시즌 1 : 랭커', 30, 30, 50, 20, 0, '30일 · 랭킹 1~100위'],
+  ['각성에 다다른 자', 30, 30, 50, 20, 0, '28일'],
+  ['Infinite Flame', 20, 20, 30, 30, 0, '하이퍼버닝 240 달성'],
+  ['마스테리아의 소환사', 10, 0, 20, 10, 0, '무기한'],
+  ['예티X핑크빈', 10, 0, 20, 10, 0, '무기한 · 이벤트'],
+  ['챌린지 월드 시즌 I 레전드리', 10, 0, 10, 10, 0, '무기한'],
+  ['핑아일체 / 예아일체', 10, 0, 10, 5, 0, '무기한 · 이벤트'],
+  ['메이플을 잘 아는', 0, 10, 10, 5, 0, '무기한'],
+  ['킹 오브 루타비스', 5, 5, 8, 3, 0, '무기한 · 상시 획득'],
+].map(([name, boss, ied, all, att, cd, note]) => ({ name, boss, ied, all, att, cd, note }));
+const titleOf = () => TITLES.find(t => t.name === S.etc.title);
+const titleText = t => [t.boss && `보공 ${t.boss}%`, t.ied && `방무 ${t.ied}%`, `올스탯 ${t.all}`, `${ATT_NAME()} ${t.att}`, t.cd && `크뎀 ${t.cd}%`].filter(Boolean).join(' · ');
 function etcStat() {
   const U2 = ACC.union, ch = n => U2.champ.filter(g => g >= n).length, rd = k => (U2.raid[k] || 0) * RAID[k][1], x = S.etc.ex;
-  const r = { all: 20 * ch(1), att: 10 * ch(2) + rd('att') + (x.att || 0), boss: 5 * ch(3) + rd('boss') + (x.boss || 0), cd: 3 * ch(4) + rd('cd') + (x.cd || 0),
-    flat: rd('main') + (x.flat || 0), mainPct: x.mainPct || 0, attPct: x.attPct || 0, dmg: x.dmg || 0, fd: x.fd || 0, ied: [] };
-  [5 * ch(5), rd('ied'), x.ied || 0].forEach(v => v && r.ied.push(v));
+  const T = titleOf() || { boss: 0, ied: 0, all: 0, att: 0, cd: 0 };
+  const r = { all: 20 * ch(1) + T.all, att: 10 * ch(2) + rd('att') + (x.att || 0) + T.att, boss: 5 * ch(3) + rd('boss') + (x.boss || 0) + T.boss,
+    cd: 3 * ch(4) + rd('cd') + (x.cd || 0) + T.cd, flat: rd('main') + (x.flat || 0), mainPct: x.mainPct || 0, attPct: x.attPct || 0,
+    dmg: x.dmg || 0, fd: x.fd || 0, ied: [] };
+  [5 * ch(5), rd('ied'), x.ied || 0, T.ied].forEach(v => v && r.ied.push(v));
   return r;
 }
 
@@ -1629,7 +1649,16 @@ function hexaPanel() {
 }
 function etcPanel() {
   const E = S.etc, U2 = ACC.union, pts = raidPts(), used = raidUsed();
+  const T = titleOf();
   return `<h3>기타 스탯</h3>
+    <div class="auto-cube">
+      <div class="pot-title">칭호 <span class="muted small">이 캐릭터만</span></div>
+      <select class="title-sel" data-title="1">
+        <option value="">칭호 없음</option>
+        ${TITLES.map(t => `<option value="${t.name}" ${T && T.name === t.name ? 'selected' : ''}>${t.name} — ${titleText(t)}</option>`).join('')}
+      </select>
+      ${T ? `<div class="title-box"><b class="soul-c">${T.name}</b><div>${titleText(T)}</div><div class="muted small">${T.note}</div></div>` : ''}
+    </div>
     <div class="auto-cube">
       <div class="pot-title">유니온 챔피언 휘장 <span class="muted small">모든 캐릭터 공용</span> <button class="sm right" data-act="etcPreset" data-p="champ">전부 SSS</button></div>
       <div class="champ-grid">${U2.champ.map((g, i) => `<label>챔피언 ${i + 1} <select data-set="acc.union.champ.${i}">${CHAMP_GRADES.map((n, v) => `<option value="${v}" ${g === v ? 'selected' : ''}>${n}</option>`).join('')}</select></label>`).join('')}</div>
@@ -1883,6 +1912,7 @@ document.addEventListener('change', e => {
     if (raidUsed() > raidPts()) ACC.union.raid = {}; // 포인트가 줄면 배분 초기화
     refresh(); return;
   }
+  if (e.target.dataset && e.target.dataset.title && S) { S.etc.title = e.target.value || null; refresh(); return; }
   if (e.target.dataset && e.target.dataset.cry && S) {
     const [i, j] = e.target.dataset.cry.split('.').map(Number), c = artCrystal(i), k = e.target.value, dup = c.opts.indexOf(k);
     if (dup >= 0 && dup !== j) c.opts[dup] = c.opts[j]; // 같은 크리스탈 안 중복이면 서로 바꿈

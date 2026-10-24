@@ -262,3 +262,7 @@ button.white { background: #e8e8f0; color: #1a1a22; }
 .raid-cell .hv { color: var(--accent); font-weight: bold; }
 .raid-cell button { padding: 2px 8px; }
 @media (max-width: 560px) { .art-grid, .champ-grid, .ex-grid { grid-template-columns: repeat(2, 1fr); } .raid-grid { grid-template-columns: repeat(2, 1fr); } }
+
+/* 칭호 */
+.title-sel { width: 100%; background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font: inherit; font-size: 13px; margin: 6px 0; }
+.title-box { background: #08090d; border: 1px solid #a8823a; border-radius: 8px; padding: 8px 10px; text-align: center; line-height: 1.6; }
