@@ -266,3 +266,15 @@ button.white { background: #e8e8f0; color: #1a1a22; }
 /* 칭호 */
 .title-sel { width: 100%; background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font: inherit; font-size: 13px; margin: 6px 0; }
 .title-box { background: #08090d; border: 1px solid #a8823a; border-radius: 8px; padding: 8px 10px; text-align: center; line-height: 1.6; }
+
+/* 적용중인 세트 효과 */
+.set-list { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+.set-head { font-size: 15px; margin: 0 0 2px; }
+.set-row { background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; }
+.set-row summary { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; cursor: pointer; list-style: none; font-size: 13px; }
+.set-row summary::-webkit-details-marker { display: none; }
+.set-row.off { opacity: .6; }
+.set-n { background: #1e3a5f; color: #6ec6ff; border-radius: 6px; padding: 1px 7px; font-size: 12px; }
+.set-fx { padding: 0 10px 8px; font-size: 12px; line-height: 1.7; color: var(--muted); }
+.set-fx .on { color: var(--text); }
+.set-fx b { display: inline-block; min-width: 44px; }

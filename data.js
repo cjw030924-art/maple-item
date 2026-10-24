@@ -135,6 +135,15 @@ ITEMS.push(...ASTRA_DATA);
 ITEMS.push({ id: '하트-컴플리트 언더컨트롤', name: '컴플리트 언더컨트롤', set: '하트', slot: '하트', level: 200, group: 'all',
   s: { STR: 25, DEX: 25, INT: 25, LUK: 25 }, pad: 15, mad: 15, ied: 30, tuc: 10, icon: 'icons/total-control.png' });
 
+// 칠흑의 보스 세트 (10부위, 기계 심장은 블랙 하트·컴플리트 언더컨트롤 중 하나)
+const PITCH_RE = /^(루즈 컨트롤 머신 마크|마력이 깃든 안대|블랙 하트|컴플리트 언더컨트롤|몽환의 벨트|고통의 근원|창세의 뱃지|커맨더 포스 이어링|거대한 공포|저주받은 .+의 마도서|미트라의 분노)/;
+ITEMS.filter(t => PITCH_RE.test(t.name)).forEach(t => (t.set = '칠흑'));
+const PITCH_SET = {
+  2: { all: 10, att: 10, boss: 10 }, 3: { all: 10, att: 10, ied: 10 }, 4: { all: 15, att: 15, cd: 5 },
+  5: { all: 15, att: 15, boss: 10 }, 6: { all: 15, att: 15, ied: 10 }, 7: { all: 15, att: 15, cd: 5 },
+  8: { all: 15, att: 15, boss: 10 }, 9: { all: 15, att: 15, cd: 5 }, 10: { all: 20, att: 20, boss: 10 },
+};
+
 // 익셉셔널 강화 가능 부위 (칠흑 1회, 광휘 3회 / 회당 올스탯 +20 공마 +15, 몽환의 벨트 외에는 근사치)
 [['공용-몽환의 벨트', 1], ['공용-루즈 컨트롤 머신 마크', 1], ['공용-마력이 깃든 안대', 1], ['공용-커맨더 포스 이어링', 1],
  ['광휘-오만의 원죄', 3], ['광휘-불멸의 유산', 3]].forEach(([id, max]) => {
@@ -169,3 +178,12 @@ const ETERNAL_SET = {
   2: { att: 40, boss: 10 }, 3: { all: 50, att: 40, boss: 10 }, 4: { att: 40, boss: 10 }, 5: { att: 40, ied: 20 },
   6: { att: 40, boss: 15 }, 7: { all: 50, att: 40, boss: 15 }, 8: { att: 40, boss: 15 },
 };
+
+// 세트 목록: by = 같은 부위는 1개로 셀지(slot) / 아이템별로 셀지(id)
+const SETS = {
+  에테르넬: { name: '에테르넬 세트', fx: ETERNAL_SET, max: 8, by: 'slot' },
+  광휘: { name: '광휘의 보스 세트', fx: RADIANCE_SET, max: 6, by: 'id' },
+  칠흑: { name: '칠흑의 보스 세트', fx: PITCH_SET, max: 10, by: 'slot' },
+};
+// 럭키 아이템: 3개 이상 착용 중인 모든 세트에 1부위로 포함 (여러 개여도 1개만)
+const isLucky = t => !!(t.destiny || t.set === '제네시스');

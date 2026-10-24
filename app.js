@@ -428,6 +428,18 @@ function itemStats(it) {
   return r;
 }
 const getIt = v => (typeof v === 'object' ? v : findItem(v));
+// 착용 중인 세트별 개수 [{ key, n, lucky }] (럭키 아이템은 3개 이상인 세트에 +1)
+function setCounts(eq = S.eq) {
+  const items = [...new Set(Object.values(eq))].map(getIt).filter(Boolean).map(it => TPL[it.id]);
+  const lucky = items.some(isLucky);
+  return Object.entries(SETS).map(([key, st]) => {
+    const own = items.filter(t => t.set === key);
+    let n = new Set(own.map(t => (st.by === 'slot' ? t.slot : t.id))).size;
+    const plus = lucky && n >= 3 && !own.some(isLucky) && n < st.max;
+    if (plus) n++;
+    return { key, n: Math.min(st.max, n), lucky: plus };
+  }).filter(x => x.n >= 1);
+}
 function totals(eq = S.eq) {
   const r = { main: 0, sub: 0, att: 0, mainPct: 0, attPct: 0, boss: 0, dmg: 0, cd: 0, ied: 0 };
   let keep = 1;
@@ -437,22 +449,15 @@ function totals(eq = S.eq) {
     ['main', 'sub', 'att', 'mainPct', 'attPct', 'boss', 'dmg', 'cd'].forEach(k => (r[k] += s[k]));
     s.ied.forEach(v => (keep *= 1 - v / 100));
   });
-  // 광휘 세트 효과
-  const rad = new Set([...new Set(Object.values(eq))].map(v => getIt(v)).filter(it => it && TPL[it.id].set === '광휘').map(it => it.id)).size;
-  r.radiance = rad;
-  // 에테르넬 세트 (무기 제외 부위 수)
-  const ete = new Set([...new Set(Object.values(eq))].map(v => getIt(v)).filter(it => it && TPL[it.id].set === '에테르넬').map(it => TPL[it.id].slot)).size;
-  r.eternal = ete;
-  for (let n = 2; n <= Math.min(8, ete); n++) {
-    const e = ETERNAL_SET[n];
-    r.main += e.all || 0; r.sub += e.all || 0; r.att += e.att; r.boss += e.boss || 0;
-    if (e.ied) keep *= 1 - e.ied / 100;
-  }
-  for (let n = 2; n <= rad; n++) {
-    const e = RADIANCE_SET[n];
-    r.main += e.all; r.sub += e.all; r.att += e.att; r.boss += e.boss || 0; r.cd += e.cd || 0;
-    if (e.ied) keep *= 1 - e.ied / 100;
-  }
+  // 세트 효과 (n세트 달성 시 2세트부터 누적)
+  r.sets = setCounts(eq);
+  r.sets.forEach(({ key, n }) => {
+    for (let i = 2; i <= n; i++) {
+      const e = SETS[key].fx[i] || {};
+      r.main += e.all || 0; r.sub += e.all || 0; r.att += e.att || 0; r.boss += e.boss || 0; r.cd += e.cd || 0;
+      if (e.ied) keep *= 1 - e.ied / 100;
+    }
+  });
   const U = getUnion();
   r.att += U.att; r.boss += U.boss;
   const H = hyperStat(), AB = abilStat();
@@ -633,6 +638,7 @@ function renderMain() {
     <section class="panel">
       <h2>장비창 <span class="muted small">부위를 눌러 강화</span></h2>
       <div class="equip">${equipHtml()}</div>
+      <div class="set-list">${setsHtml()}</div>
     </section>
     <section class="panel">
       <h2>아이템 추가 <span class="muted small">▲▼ 장착 시 전투력 변화</span></h2>
@@ -679,8 +685,7 @@ function summaryHtml() {
     ${box('크리티컬 데미지', +r.cd.toFixed(2) + '%')}
     ${box('최종 데미지', +r.fd.toFixed(2) + '%')}
     ${box(`% 미적용 ${cls.main}`, '+' + fmt(r.mainFlat))}
-    ${r.radiance ? box('광휘 세트', r.radiance + '세트 효과') : ''}
-    ${r.eternal >= 2 ? box('에테르넬 세트', r.eternal + '세트 효과') : ''}    ${box('사용 메소', fmtMeso(L.meso))}
+    ${box('사용 메소', fmtMeso(L.meso))}
     ${box('스타포스 시도', fmt(L.sf))}
     ${box('파괴', fmt(L.boom))}
     ${box('레드/블랙 큐브', fmt(L.red) + ' / ' + fmt(L.black))}
@@ -721,6 +726,20 @@ function unionHtml() {
 const box = (k, v, c = '') => `<div class="stat ${c}"><span>${k}</span><b>${v}</b></div>`;
 const gradeOf = it => (it.pot ? it.pot.grade : -1);
 
+// 적용중인 세트 효과 (누르면 단계별 효과)
+function setsHtml() {
+  const list = setCounts();
+  const fxText = e => [e.all && `올스탯 +${e.all}`, e.att && `${ATT_NAME()} +${e.att}`, e.boss && `보공 +${e.boss}%`, e.ied && `방무 +${e.ied}%`, e.cd && `크뎀 +${e.cd}%`].filter(Boolean).join(' · ');
+  return `<h3 class="set-head">적용중인 세트 효과</h3>
+    ${list.length ? list.map(({ key, n, lucky }) => {
+      const st = SETS[key];
+      return `<details class="set-row ${n >= 2 ? '' : 'off'}">
+        <summary><span>${st.name}${lucky ? ' <span class="muted small">(럭키 +1)</span>' : ''}</span><b class="set-n">${n}셋</b></summary>
+        <div class="set-fx">${Object.entries(st.fx).map(([i, e]) => `<div class="${+i <= n ? 'on' : ''}"><b>${i}세트</b> ${fxText(e)}</div>`).join('')}</div>
+      </details>`;
+    }).join('') : '<p class="muted small">착용 중인 세트 아이템이 없어요.</p>'}
+    <p class="muted small">데스티니·제네시스 무기(럭키 아이템)는 3개 이상 착용 중인 모든 세트에 1부위로 포함돼요.</p>`;
+}
 function equipHtml() {
   return LAYOUT.flat().map(k => {
     if (!k) return '<div class="slot blank"></div>';
