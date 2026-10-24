@@ -1708,16 +1708,22 @@ function etcPanel() {
       <p class="muted small">게임 스탯창 수치에서 사이트에 없는 부분만 더하면 실제 전투력과 가까워져요. 특히 최종 데미지는 직업 패시브에서 크게 들어와요.</p>
     </details>`;
 }
-// 코인샵 보약 (훈련 일지): [키, 이름, 레벨당 수치, 최대 레벨, 단위] — 수치·칩 비용은 근사치
+// 코인샵 보약 (훈련 일지): [키, 이름, 레벨당 수치, 최대 레벨, 단위] — 레벨당 수치는 근사치
 const TONIC = [
-  ['att', '공격력/마력', 3, 10, ''], ['boss', '보스 데미지', 2, 10, '%'], ['ied', '방어율 무시', 2, 10, '%'],
-  ['all', '올스탯', 10, 10, ''], ['hp', 'HP/MP', 500, 10, ''], ['buff', '버프 지속 시간', 2, 10, '%'],
-  ['crit', '크리티컬 확률', 2, 10, '%'], ['normal', '일반몹 데미지', 2, 10, '%'], ['arc', '아케인포스', 10, 10, ''],
-  ['aut', '어센틱포스', 5, 10, ''], ['exp', '획득 경험치', 2, 10, '%'],
+  ['att', '공격력/마력', 3, 5, ''], ['boss', '보스 데미지', 2, 5, '%'], ['ied', '방어율 무시', 2, 5, '%'],
+  ['all', '올스탯', 10, 5, ''], ['hp', 'HP/MP', 500, 5, ''], ['buff', '버프 지속 시간', 2, 5, '%'],
+  ['crit', '크리티컬 확률', 2, 5, '%'], ['normal', '일반몹 데미지', 2, 5, '%'], ['arc', '아케인포스', 10, 5, ''],
+  ['aut', '어센틱포스', 5, 5, ''], ['exp', '획득 경험치', 2, 5, '%'],
 ];
-const TONIC_BUY = 10; // 구매 1회당 칩
-const tonicOf = () => (S.etc.tonic = S.etc.tonic || { lv: {}, chips: 20 });
-const tonicCost = lv => lv + 1;
+const TONIC_COST = [1, 2, 4, 8, 15]; // 0→1 … 4→5, 합계 30개
+const TONIC_BUY = 10, TONIC_CAP = 300; // 구매 1회당 칩 / 얻을 수 있는 칩 총량
+function tonicOf() {
+  const tn = (S.etc.tonic = S.etc.tonic || { lv: {}, chips: 20, got: 20 });
+  if (tn.got == null) tn.got = Math.min(TONIC_CAP, tn.chips + Object.values(tn.lv).reduce((a, l) => a + TONIC_COST.slice(0, Math.min(5, l)).reduce((x, y) => x + y, 0), 0));
+  for (const k in tn.lv) if (tn.lv[k] > 5) tn.lv[k] = 5; // 예전 최대 Lv.10 데이터
+  return tn;
+}
+const tonicCost = lv => TONIC_COST[lv];
 const tonicVal = k => { const T = TONIC.find(x => x[0] === k); return (tonicOf().lv[k] || 0) * T[2]; };
 function tonicHtml() {
   const tn = tonicOf();
@@ -1725,7 +1731,9 @@ function tonicHtml() {
     <div class="tonic-head"><b>훈련 일지</b><span class="muted small">코인샵 보약 · 이 캐릭터만</span><button class="sm tonic-btn right" data-act="tonicReset">전체 초기화</button></div>
     <div class="tonic-bar">
       <span>◆ 전투 훈련</span>
-      <span class="tonic-chip">🎟️ 전투 훈련 칩 <b>${fmt(tn.chips)}</b>개 <button class="sm tonic-btn" data-act="tonicBuy">구매하기</button></span>
+      <span class="tonic-chip">🎟️ 전투 훈련 칩 <b>${fmt(tn.chips)}</b>개 <span class="small">(획득 ${tn.got} / ${TONIC_CAP})</span>
+        <button class="sm tonic-btn" data-act="tonicBuy" ${tn.got < TONIC_CAP ? '' : 'disabled'}>구매하기</button>
+        <button class="sm tonic-btn" data-act="tonicBuy" data-all="1" ${tn.got < TONIC_CAP ? '' : 'disabled'}>전부</button></span>
     </div>
     <div class="tonic-grid">${TONIC.map(([k, n, per, max, u]) => {
       const lv = tn.lv[k] || 0, cost = tonicCost(lv), done = lv >= max;
@@ -1737,7 +1745,7 @@ function tonicHtml() {
         <button class="sm tonic-btn" data-act="tonicTrain" data-k="${k}" ${!done && tn.chips >= cost ? '' : 'disabled'}>훈련하기</button>
       </div>`;
     }).join('')}</div>
-    <p class="muted small">훈련할 때마다 칩이 (현재 레벨 + 1)개 들어요 · 최대 Lv.10 · 구매하기 1회 = 칩 ${TONIC_BUY}개. 전투력에는 공격력/마력 · 보스 데미지 · 방어율 무시 · 올스탯이 반영돼요. 수치는 근사치예요.</p>
+    <p class="muted small">필요 칩: Lv.1 ${TONIC_COST.join(' → ')}개 (Lv.5까지 30개) · 칩은 최대 ${TONIC_CAP}개까지 얻을 수 있어요 · 구매하기 1회 = ${TONIC_BUY}개. 전투력에는 공격력/마력 · 보스 데미지 · 방어율 무시 · 올스탯이 반영돼요. 수치는 근사치예요.</p>
   </div>`;
 }
 function renderPanel() {
@@ -1926,7 +1934,11 @@ document.addEventListener('click', e => {
       if (b.dataset.p === 'champ') ACC.union.champ = [5, 5, 5, 5, 5, 5];
       else { const R = ACC.union.raid; ['cd', 'boss', 'ied'].forEach(k => (R[k] = 0)); ['cd', 'boss', 'ied'].forEach(k => { R[k] = Math.max(0, Math.min(40, raidPts() - raidUsed())); }); }
       refresh(); break;
-    case 'tonicBuy': tonicOf().chips += TONIC_BUY; S.log.tonicBuy = (S.log.tonicBuy || 0) + 1; refresh(); break;
+    case 'tonicBuy': {
+      const tn = tonicOf(), n = Math.min(b.dataset.all ? TONIC_CAP : TONIC_BUY, TONIC_CAP - tn.got);
+      if (n > 0) { tn.chips += n; tn.got += n; S.log.tonicBuy = (S.log.tonicBuy || 0) + 1; }
+      refresh(); break;
+    }
     case 'tonicTrain': {
       const tn = tonicOf(), k = b.dataset.k, lv = tn.lv[k] || 0, T = TONIC.find(x => x[0] === k);
       if (lv < T[3] && tn.chips >= tonicCost(lv)) { tn.chips -= tonicCost(lv); tn.lv[k] = lv + 1; setMsg(`${T[1]} Lv.${lv + 1}!`, 'ok'); }
