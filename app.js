@@ -61,9 +61,12 @@ function load(name) {
   S.inv.forEach(i => { if (i.id === '펫장비') i.id = '1802653'; }); // 예전 펫장비 → 루나 크리스탈 키
   S.hyper = S.hyper || {};
   S.abil = S.abil || { grade: 0, lines: [abilLine(0), abilLine(0), abilLine(0)] };
-  S.art = S.art || PANEL_BLANK.art();
   S.hexa = S.hexa || PANEL_BLANK.hexa();
   S.etc = S.etc || PANEL_BLANK.etc();
+  // 아티팩트·유니온(휘장/점령)은 계정 공용
+  loadAcc();
+  S.art = ACC.art;
+  delete S.etc.champ; delete S.etc.raid; delete S.etc.raidPts;
   UNION = null;
   cls = CLASSES.find(c => c.name === name);
   // 예전 버전 데이터에 남은 없어진 아이템 정리
@@ -73,13 +76,42 @@ function load(name) {
 function save() {
   if (!S) return;
   try { S.power = totals().power; } catch (e) {}
-  try { localStorage.setItem(KEY + S.cls, JSON.stringify(S)); } catch (e) {}
+  const { art, ...rest } = S; // 아티팩트는 계정 공용 저장소에
+  try { localStorage.setItem(KEY + S.cls, JSON.stringify(rest)); } catch (e) {}
+  saveAcc();
+}
+// 계정 공용 (모든 캐릭터): 아티팩트, 유니온 챔피언 휘장, 공격대 점령
+const ACC_KEY = 'maple-item-account';
+let ACC = null;
+function loadAcc() {
+  if (ACC) return;
+  try { ACC = JSON.parse(localStorage.getItem(ACC_KEY)); } catch (e) {}
+  if (ACC) return;
+  ACC = { art: PANEL_BLANK.art(), union: PANEL_BLANK.union() };
+  // 예전엔 캐릭터별로 저장됐으니 가장 많이 키운 캐릭터 것을 가져옴
+  const artScore = a => a.lv * 100 + a.crystals.reduce((s, c) => s + ((c && c.lv) || 0), 0);
+  const uniScore = e => e.champ.reduce((s, g) => s + g, 0) + Object.values(e.raid || {}).reduce((s, n) => s + n, 0);
+  let best = 0;
+  CLASSES.forEach(c => {
+    const d = savedCount(c.name);
+    if (!d) return;
+    if (d.art && artScore(d.art) > artScore(ACC.art)) ACC.art = d.art;
+    if (d.etc && d.etc.champ && uniScore(d.etc) > best) {
+      best = uniScore(d.etc);
+      ACC.union = { champ: d.etc.champ, raid: d.etc.raid || {}, raidPts: d.etc.raidPts != null ? d.etc.raidPts : null };
+    }
+  });
+  saveAcc();
+}
+function saveAcc() {
+  if (ACC) try { localStorage.setItem(ACC_KEY, JSON.stringify(ACC)); } catch (e) {}
 }
 // 로그인 후 계정 데이터로 바뀌었을 때 다시 읽기
 function reloadFromStorage() {
   try { CUSTOM = JSON.parse(localStorage.getItem(CUSTOM_KEY)) || []; } catch (e) { CUSTOM = []; }
   CUSTOM.forEach(t => { if (!TPL[t.id]) { ITEMS.push(t); TPL[t.id] = t; } });
   if (M && M.auto) clearInterval(M.auto.timer);
+  ACC = null;
   M = null; renderSelect();
 }
 function savedCount(name) {
@@ -1519,12 +1551,12 @@ const RAID = {
 const raidName = k => (k === 'main' ? cls.main : k === 'att' ? ATT_NAME() : RAID[k][0]);
 // 공격대원 블록 크기(레벨별)로 점령 포인트 계산, 상위 40명
 const raidPtsAuto = () => getUnion().chars.slice(0, 40).reduce((a, c) => a + (c.lv >= 250 ? 5 : c.lv >= 200 ? 4 : c.lv >= 140 ? 3 : c.lv >= 100 ? 2 : c.lv >= 60 ? 1 : 0), 0);
-const raidPts = () => (S.etc.raidPts != null ? S.etc.raidPts : raidPtsAuto());
-const raidUsed = () => Object.values(S.etc.raid).reduce((a, b) => a + b, 0);
+const raidPts = () => (ACC.union.raidPts != null ? ACC.union.raidPts : raidPtsAuto());
+const raidUsed = () => Object.values(ACC.union.raid).reduce((a, b) => a + b, 0);
 const ETC_EX = [['flat', () => `${cls.main} (% 미적용)`], ['mainPct', () => `${cls.main} %`], ['att', () => ATT_NAME()], ['attPct', () => ATT_NAME() + ' %'],
   ['dmg', () => '데미지 %'], ['boss', () => '보스 데미지 %'], ['fd', () => '최종 데미지 %'], ['cd', () => '크리티컬 데미지 %'], ['ied', () => '방어율 무시 %']];
 function etcStat() {
-  const E = S.etc, ch = n => E.champ.filter(g => g >= n).length, rd = k => (E.raid[k] || 0) * RAID[k][1], x = E.ex;
+  const U2 = ACC.union, ch = n => U2.champ.filter(g => g >= n).length, rd = k => (U2.raid[k] || 0) * RAID[k][1], x = S.etc.ex;
   const r = { all: 20 * ch(1), att: 10 * ch(2) + rd('att') + (x.att || 0), boss: 5 * ch(3) + rd('boss') + (x.boss || 0), cd: 3 * ch(4) + rd('cd') + (x.cd || 0),
     flat: rd('main') + (x.flat || 0), mainPct: x.mainPct || 0, attPct: x.attPct || 0, dmg: x.dmg || 0, fd: x.fd || 0, ied: [] };
   [5 * ch(5), rd('ied'), x.ied || 0].forEach(v => v && r.ied.push(v));
@@ -1534,21 +1566,29 @@ function etcStat() {
 const PANEL_BLANK = {
   abil: () => ({ grade: 0, lines: [] }), hyper: () => ({}), art: () => ({ lv: 1, crystals: [] }),
   hexa: () => [0, 1, 2].map(() => ({ main: 'boss', add: ['att', 'main'], ml: 0, al: [0, 0] })),
-  etc: () => ({ champ: [0, 0, 0, 0, 0, 0], raid: {}, raidPts: null, ex: {} }),
+  etc: () => ({ ex: {} }),
+  union: () => ({ champ: [0, 0, 0, 0, 0, 0], raid: {}, raidPts: null }),
 };
 // 이 창의 효과를 뺐을 때와의 전투력 차이
 function panelContrib(kind) {
-  const now = totals().power, keep = S[kind];
+  const now = totals().power, keep = S[kind], keepU = ACC.union;
   S[kind] = PANEL_BLANK[kind]();
+  if (kind === 'etc') ACC.union = PANEL_BLANK.union();
   const without = totals().power;
-  S[kind] = keep;
+  S[kind] = keep; ACC.union = keepU;
   return now - without;
 }
-const setPath = (path, v) => { const ks = path.split('.'); let o = S; ks.slice(0, -1).forEach(k => (o = o[k])); o[ks[ks.length - 1]] = v; };
+// 'acc.'로 시작하면 계정 공용 데이터
+const setPath = (path, v) => {
+  const ks = path.split('.');
+  let o = ks[0] === 'acc' ? ACC : S;
+  ks.slice(ks[0] === 'acc' ? 1 : 0, -1).forEach(k => (o = o[k]));
+  o[ks[ks.length - 1]] = v;
+};
 
 function artPanel() {
   const A = S.art, L = artLevels(), used = artApUsed(), total = artApTotal(A.lv), open = artCryMax(A.lv);
-  return `<h3>유니온 아티팩트 <span class="muted small">Lv.${A.lv} · AP ${used} / ${total}</span></h3>
+  return `<h3>유니온 아티팩트 <span class="muted small">Lv.${A.lv} · AP ${used} / ${total} · 모든 캐릭터 공용</span></h3>
     <div class="actions">
       <button class="primary" data-act="artLv" data-n="1" ${A.lv >= 60 ? 'disabled' : ''}>레벨 업</button>
       <button data-act="artLv" data-n="10" ${A.lv >= 60 ? 'disabled' : ''}>+10</button>
@@ -1588,22 +1628,22 @@ function hexaPanel() {
     <p class="muted small">강화할 때마다 메인 또는 추가 스탯 중 하나가 1레벨 올라요. 메인 스탯은 레벨이 높을수록 오르기 어려워요. 스탯 종류는 0레벨일 때만 바꿀 수 있어요. ${cls.main}은 % 미적용 스탯이에요.</p>`;
 }
 function etcPanel() {
-  const E = S.etc, pts = raidPts(), used = raidUsed();
+  const E = S.etc, U2 = ACC.union, pts = raidPts(), used = raidUsed();
   return `<h3>기타 스탯</h3>
     <div class="auto-cube">
-      <div class="pot-title">유니온 챔피언 휘장 <button class="sm right" data-act="etcPreset" data-p="champ">전부 SSS</button></div>
-      <div class="champ-grid">${E.champ.map((g, i) => `<label>챔피언 ${i + 1} <select data-set="etc.champ.${i}">${CHAMP_GRADES.map((n, v) => `<option value="${v}" ${g === v ? 'selected' : ''}>${n}</option>`).join('')}</select></label>`).join('')}</div>
+      <div class="pot-title">유니온 챔피언 휘장 <span class="muted small">모든 캐릭터 공용</span> <button class="sm right" data-act="etcPreset" data-p="champ">전부 SSS</button></div>
+      <div class="champ-grid">${U2.champ.map((g, i) => `<label>챔피언 ${i + 1} <select data-set="acc.union.champ.${i}">${CHAMP_GRADES.map((n, v) => `<option value="${v}" ${g === v ? 'selected' : ''}>${n}</option>`).join('')}</select></label>`).join('')}</div>
       <p class="muted small">등급별 누적: B 올스탯 +20 · A ${ATT_NAME()} +10 · S 보공 5% · SS 크뎀 3% · SSS 방무 5% (6명 SSS = 올스탯 120 · ${ATT_NAME()} 60 · 보공 30% · 크뎀 18% · 방무 30%)</p>
     </div>
     <div class="auto-cube">
-      <div class="pot-title">유니온 공격대 점령 <span class="muted small">POINT ${used} / ${pts}</span> <button class="sm right" data-act="etcPreset" data-p="raid">크뎀·보공·방무 40</button></div>
-      <div class="raid-grid">${Object.keys(RAID).map(k => { const n = E.raid[k] || 0, [, per, max, u] = RAID[k]; return `<div class="raid-cell">
+      <div class="pot-title">유니온 공격대 점령 <span class="muted small">POINT ${used} / ${pts} · 모든 캐릭터 공용</span> <button class="sm right" data-act="etcPreset" data-p="raid">크뎀·보공·방무 40</button></div>
+      <div class="raid-grid">${Object.keys(RAID).map(k => { const n = U2.raid[k] || 0, [, per, max, u] = RAID[k]; return `<div class="raid-cell">
         <span class="muted small">${n} / ${max}</span><b>${raidName(k)}</b><span class="hv">${+(n * per).toFixed(2)}${u}</span>
         <div><button class="sm" data-act="raid" data-k="${k}" data-d="-1" ${n ? '' : 'disabled'}>−</button><button class="sm primary" data-act="raid" data-k="${k}" data-d="1" ${n < max && used < pts ? '' : 'disabled'}>+</button></div></div>`; }).join('')}</div>
-      <div class="goal">점령 포인트 <input type="number" min="0" data-set="etc.raidPts" value="${pts}"> <span class="muted small">(비워 두면 내 캐릭터 레벨로 자동 계산 · 게임 유니온 창의 POINT 값을 넣으면 정확해요)</span></div>
+      <div class="goal">점령 포인트 <input type="number" min="0" data-set="acc.union.raidPts" value="${pts}"> <span class="muted small">(비워 두면 내 캐릭터 레벨로 자동 계산 · 게임 유니온 창의 POINT 값을 넣으면 정확해요)</span></div>
     </div>
     <div class="auto-cube">
-      <div class="pot-title">직접 입력 <span class="muted small">길드 스킬 · 링크 스킬 · 직업 패시브 · 칭호 · 도핑 등</span></div>
+      <div class="pot-title">직접 입력 <span class="muted small">이 캐릭터만 · 길드 스킬 · 링크 스킬 · 직업 패시브 · 칭호 · 도핑 등</span></div>
       <div class="ex-grid">${ETC_EX.map(([k, n]) => `<label>${n()} <input type="number" step="any" data-set="etc.ex.${k}" value="${E.ex[k] || 0}"></label>`).join('')}</div>
       <p class="muted small">게임 스탯창 수치에서 여기 사이트에 없는 부분만 더하면 실제 전투력과 가까워져요. 특히 최종 데미지는 직업 패시브에서 크게 들어와요.</p>
     </div>`;
@@ -1791,13 +1831,13 @@ document.addEventListener('click', e => {
     }
     case 'hexaReset': { const c = S.hexa[+b.dataset.i]; c.ml = 0; c.al = [0, 0]; S.log.meso += 1e7; setMsg('HEXA 스탯 코어를 초기화했어요.'); refresh(); break; }
     case 'etcPreset':
-      if (b.dataset.p === 'champ') S.etc.champ = [5, 5, 5, 5, 5, 5];
-      else { const R = S.etc.raid; ['cd', 'boss', 'ied'].forEach(k => (R[k] = 0)); ['cd', 'boss', 'ied'].forEach(k => { R[k] = Math.max(0, Math.min(40, raidPts() - raidUsed())); }); }
+      if (b.dataset.p === 'champ') ACC.union.champ = [5, 5, 5, 5, 5, 5];
+      else { const R = ACC.union.raid; ['cd', 'boss', 'ied'].forEach(k => (R[k] = 0)); ['cd', 'boss', 'ied'].forEach(k => { R[k] = Math.max(0, Math.min(40, raidPts() - raidUsed())); }); }
       refresh(); break;
     case 'raid': {
-      const k = b.dataset.k, n = S.etc.raid[k] || 0;
-      if (+b.dataset.d > 0 && n < RAID[k][2] && raidUsed() < raidPts()) S.etc.raid[k] = n + 1;
-      else if (+b.dataset.d < 0 && n) S.etc.raid[k] = n - 1;
+      const k = b.dataset.k, n = ACC.union.raid[k] || 0;
+      if (+b.dataset.d > 0 && n < RAID[k][2] && raidUsed() < raidPts()) ACC.union.raid[k] = n + 1;
+      else if (+b.dataset.d < 0 && n) ACC.union.raid[k] = n - 1;
       refresh(); break;
     }
     case 'rmCustom':
@@ -1839,8 +1879,8 @@ document.addEventListener('input', e => {
 document.addEventListener('change', e => {
   if (e.target.dataset && e.target.dataset.set && S) {
     const path = e.target.dataset.set, v = e.target.value;
-    setPath(path, path === 'etc.raidPts' && v === '' ? null : +v || 0);
-    if (raidUsed() > raidPts()) S.etc.raid = {}; // 포인트가 줄면 배분 초기화
+    setPath(path, path === 'acc.union.raidPts' && v === '' ? null : +v || 0);
+    if (raidUsed() > raidPts()) ACC.union.raid = {}; // 포인트가 줄면 배분 초기화
     refresh(); return;
   }
   if (e.target.dataset && e.target.dataset.cry && S) {
