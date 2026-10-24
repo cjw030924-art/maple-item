@@ -66,7 +66,7 @@ function load(name) {
   // 아티팩트·유니온(휘장/점령)은 계정 공용
   loadAcc();
   S.art = ACC.art;
-  delete S.etc.champ; delete S.etc.raid; delete S.etc.raidPts;
+  delete S.etc.champ; delete S.etc.raid; delete S.etc.raidPts; delete S.etc.tonic;
   UNION = null;
   cls = CLASSES.find(c => c.name === name);
   // 예전 버전 데이터에 남은 없어진 아이템 정리
@@ -86,21 +86,29 @@ let ACC = null;
 function loadAcc() {
   if (ACC) return;
   try { ACC = JSON.parse(localStorage.getItem(ACC_KEY)); } catch (e) {}
-  if (ACC) return;
-  ACC = { art: PANEL_BLANK.art(), union: PANEL_BLANK.union() };
   // 예전엔 캐릭터별로 저장됐으니 가장 많이 키운 캐릭터 것을 가져옴
-  const artScore = a => a.lv * 100 + a.crystals.reduce((s, c) => s + ((c && c.lv) || 0), 0);
-  const uniScore = e => e.champ.reduce((s, g) => s + g, 0) + Object.values(e.raid || {}).reduce((s, n) => s + n, 0);
-  let best = 0;
-  CLASSES.forEach(c => {
-    const d = savedCount(c.name);
-    if (!d) return;
-    if (d.art && artScore(d.art) > artScore(ACC.art)) ACC.art = d.art;
-    if (d.etc && d.etc.champ && uniScore(d.etc) > best) {
-      best = uniScore(d.etc);
-      ACC.union = { champ: d.etc.champ, raid: d.etc.raid || {}, raidPts: d.etc.raidPts != null ? d.etc.raidPts : null };
-    }
-  });
+  const saved = CLASSES.map(c => savedCount(c.name)).filter(Boolean);
+  if (!ACC) {
+    ACC = { art: PANEL_BLANK.art(), union: PANEL_BLANK.union() };
+    const artScore = a => a.lv * 100 + a.crystals.reduce((s, c) => s + ((c && c.lv) || 0), 0);
+    const uniScore = e => e.champ.reduce((s, g) => s + g, 0) + Object.values(e.raid || {}).reduce((s, n) => s + n, 0);
+    let best = 0;
+    saved.forEach(d => {
+      if (d.art && artScore(d.art) > artScore(ACC.art)) ACC.art = d.art;
+      if (d.etc && d.etc.champ && uniScore(d.etc) > best) {
+        best = uniScore(d.etc);
+        ACC.union = { champ: d.etc.champ, raid: d.etc.raid || {}, raidPts: d.etc.raidPts != null ? d.etc.raidPts : null };
+      }
+    });
+  }
+  if (!ACC.tonic) {
+    let best = -1;
+    saved.forEach(d => {
+      const t = d.etc && d.etc.tonic;
+      const score = t ? Object.values(t.lv || {}).reduce((a, l) => a + Math.min(5, l), 0) : -1;
+      if (score > best) { best = score; ACC.tonic = JSON.parse(JSON.stringify(t)); }
+    });
+  }
   saveAcc();
 }
 function saveAcc() {
@@ -1604,7 +1612,7 @@ const titleText = t => [t.boss && `보공 ${t.boss}%`, t.ied && `방무 ${t.ied}
 function etcStat() {
   const U2 = ACC.union, ch = n => U2.champ.filter(g => g >= n).length, rd = k => (U2.raid[k] || 0) * RAID[k][1], x = S.etc.ex;
   const T = titleOf() || { boss: 0, ied: 0, all: 0, att: 0, cd: 0 };
-  const tv = k => (S.etc.tonic ? tonicVal(k) : 0);
+  const tv = k => (ACC.tonic ? tonicVal(k) : 0);
   const r = { all: 20 * ch(1) + T.all + tv('all'), att: 10 * ch(2) + rd('att') + (x.att || 0) + T.att + tv('att'),
     boss: 5 * ch(3) + rd('boss') + (x.boss || 0) + T.boss + tv('boss'),
     cd: 3 * ch(4) + rd('cd') + (x.cd || 0) + T.cd, flat: rd('main') + (x.flat || 0), mainPct: x.mainPct || 0, attPct: x.attPct || 0,
@@ -1621,11 +1629,11 @@ const PANEL_BLANK = {
 };
 // 이 창의 효과를 뺐을 때와의 전투력 차이
 function panelContrib(kind) {
-  const now = totals().power, keep = S[kind], keepU = ACC.union;
+  const now = totals().power, keep = S[kind], keepU = ACC.union, keepT = ACC.tonic;
   S[kind] = PANEL_BLANK[kind]();
-  if (kind === 'etc') ACC.union = PANEL_BLANK.union();
+  if (kind === 'etc') { ACC.union = PANEL_BLANK.union(); ACC.tonic = null; }
   const without = totals().power;
-  S[kind] = keep; ACC.union = keepU;
+  S[kind] = keep; ACC.union = keepU; ACC.tonic = keepT;
   return now - without;
 }
 // 'acc.'로 시작하면 계정 공용 데이터
@@ -1717,10 +1725,15 @@ const TONIC = [
 ];
 const TONIC_COST = [1, 2, 4, 8, 15]; // 0→1 … 4→5, 합계 30개
 const TONIC_BUY = 10, TONIC_CAP = 300; // 구매 1회당 칩 / 얻을 수 있는 칩 총량
+// 보약은 계정 공용 (ACC.tonic). 남은 칩 + 쓴 칩이 300을 넘지 않게 맞춤
+const tonicSpent = tn => Object.values(tn.lv).reduce((a, l) => a + TONIC_COST.slice(0, l).reduce((x, y) => x + y, 0), 0);
 function tonicOf() {
-  const tn = (S.etc.tonic = S.etc.tonic || { lv: {}, chips: 20, got: 20 });
-  if (tn.got == null) tn.got = Math.min(TONIC_CAP, tn.chips + Object.values(tn.lv).reduce((a, l) => a + TONIC_COST.slice(0, Math.min(5, l)).reduce((x, y) => x + y, 0), 0));
+  const tn = (ACC.tonic = ACC.tonic || { lv: {}, chips: 20, got: 20 });
   for (const k in tn.lv) if (tn.lv[k] > 5) tn.lv[k] = 5; // 예전 최대 Lv.10 데이터
+  const spent = tonicSpent(tn);
+  if (spent > TONIC_CAP) tn.lv = {}; // 있을 수 없는 값이면 초기화
+  if (tn.chips + tonicSpent(tn) > TONIC_CAP) tn.chips = TONIC_CAP - tonicSpent(tn);
+  tn.got = Math.max(tn.chips + tonicSpent(tn), Math.min(tn.got || 0, TONIC_CAP));
   return tn;
 }
 const tonicCost = lv => TONIC_COST[lv];
@@ -1728,7 +1741,7 @@ const tonicVal = k => { const T = TONIC.find(x => x[0] === k); return (tonicOf()
 function tonicHtml() {
   const tn = tonicOf();
   return `<div class="tonic">
-    <div class="tonic-head"><b>훈련 일지</b><span class="muted small">코인샵 보약 · 이 캐릭터만</span><button class="sm tonic-btn right" data-act="tonicReset">전체 초기화</button></div>
+    <div class="tonic-head"><b>훈련 일지</b><span class="muted small">코인샵 보약 · 모든 캐릭터 공용</span><button class="sm tonic-btn right" data-act="tonicReset">전체 초기화</button></div>
     <div class="tonic-bar">
       <span>◆ 전투 훈련</span>
       <span class="tonic-chip">🎟️ 전투 훈련 칩 <b>${fmt(tn.chips)}</b>개 <span class="small">(획득 ${tn.got} / ${TONIC_CAP})</span>
