@@ -728,7 +728,7 @@ function equipHtml() {
     if (k === 'ABIL') return `<div class="slot filled g${S.abil.grade}" data-act="panel" data-panel="abil"><span class="slot-name">어빌리티</span><span class="slot-txt gt${S.abil.grade}">${GRADES[S.abil.grade]}</span></div>`;
     if (k === 'ART') return `<div class="slot filled" data-act="panel" data-panel="art"><span class="slot-name">아티팩트</span><span class="slot-txt">Lv.${S.art.lv}</span></div>`;
     if (k === 'HEXA') return `<div class="slot filled" data-act="panel" data-panel="hexa"><span class="slot-name">헥사 스탯</span><span class="slot-txt">${S.hexa.reduce((a, c) => a + hexaLv(c), 0)} / 60</span></div>`;
-    if (k === 'ETC') return `<div class="slot filled" data-act="panel" data-panel="etc"><span class="slot-name">기타 스탯</span><span class="slot-txt">${titleOf() ? '칭호 ✓<br>' : ''}유챔·공격대</span></div>`;
+    if (k === 'ETC') return `<div class="slot filled" data-act="panel" data-panel="etc"><span class="slot-name">기타 스탯</span><span class="slot-txt">${titleOf() ? '칭호 ✓' : '칭호'}<br>유챔·공격대</span></div>`;
     if (k === 'HYPER') return `<div class="slot filled" data-act="panel" data-panel="hyper"><span class="slot-name">하이퍼 스탯</span><span class="slot-txt">${hyperUsed()} / ${hyperTotal()}</span></div>`;
     if (k === '하의') {
       const top = S.eq['상의'] && findItem(S.eq['상의']);
