@@ -1604,10 +1604,12 @@ const titleText = t => [t.boss && `보공 ${t.boss}%`, t.ied && `방무 ${t.ied}
 function etcStat() {
   const U2 = ACC.union, ch = n => U2.champ.filter(g => g >= n).length, rd = k => (U2.raid[k] || 0) * RAID[k][1], x = S.etc.ex;
   const T = titleOf() || { boss: 0, ied: 0, all: 0, att: 0, cd: 0 };
-  const r = { all: 20 * ch(1) + T.all, att: 10 * ch(2) + rd('att') + (x.att || 0) + T.att, boss: 5 * ch(3) + rd('boss') + (x.boss || 0) + T.boss,
+  const tv = k => (S.etc.tonic ? tonicVal(k) : 0);
+  const r = { all: 20 * ch(1) + T.all + tv('all'), att: 10 * ch(2) + rd('att') + (x.att || 0) + T.att + tv('att'),
+    boss: 5 * ch(3) + rd('boss') + (x.boss || 0) + T.boss + tv('boss'),
     cd: 3 * ch(4) + rd('cd') + (x.cd || 0) + T.cd, flat: rd('main') + (x.flat || 0), mainPct: x.mainPct || 0, attPct: x.attPct || 0,
     dmg: x.dmg || 0, fd: x.fd || 0, ied: [] };
-  [5 * ch(5), rd('ied'), x.ied || 0, T.ied].forEach(v => v && r.ied.push(v));
+  [5 * ch(5), rd('ied'), x.ied || 0, T.ied, tv('ied')].forEach(v => v && r.ied.push(v));
   return r;
 }
 
@@ -1699,11 +1701,44 @@ function etcPanel() {
         <div><button class="sm" data-act="raid" data-k="${k}" data-d="-1" ${n ? '' : 'disabled'}>−</button><button class="sm primary" data-act="raid" data-k="${k}" data-d="1" ${n < max && used < pts ? '' : 'disabled'}>+</button></div></div>`; }).join('')}</div>
       <div class="goal">점령 포인트 <input type="number" min="0" data-set="acc.union.raidPts" value="${pts}"> <span class="muted small">(비워 두면 내 캐릭터 레벨로 자동 계산 · 게임 유니온 창의 POINT 값을 넣으면 정확해요)</span></div>
     </div>
-    <div class="auto-cube">
-      <div class="pot-title">직접 입력 <span class="muted small">이 캐릭터만 · 길드 스킬 · 링크 스킬 · 직업 패시브 · 칭호 · 도핑 등</span></div>
+    ${tonicHtml()}
+    <details class="custom">
+      <summary>직접 입력 (직업 패시브 · 링크 · 길드 · 도핑 등, 이 캐릭터만)</summary>
       <div class="ex-grid">${ETC_EX.map(([k, n]) => `<label>${n()} <input type="number" step="any" data-set="etc.ex.${k}" value="${E.ex[k] || 0}"></label>`).join('')}</div>
-      <p class="muted small">게임 스탯창 수치에서 여기 사이트에 없는 부분만 더하면 실제 전투력과 가까워져요. 특히 최종 데미지는 직업 패시브에서 크게 들어와요.</p>
-    </div>`;
+      <p class="muted small">게임 스탯창 수치에서 사이트에 없는 부분만 더하면 실제 전투력과 가까워져요. 특히 최종 데미지는 직업 패시브에서 크게 들어와요.</p>
+    </details>`;
+}
+// 코인샵 보약 (훈련 일지): [키, 이름, 레벨당 수치, 최대 레벨, 단위] — 수치·칩 비용은 근사치
+const TONIC = [
+  ['att', '공격력/마력', 3, 10, ''], ['boss', '보스 데미지', 2, 10, '%'], ['ied', '방어율 무시', 2, 10, '%'],
+  ['all', '올스탯', 10, 10, ''], ['hp', 'HP/MP', 500, 10, ''], ['buff', '버프 지속 시간', 2, 10, '%'],
+  ['crit', '크리티컬 확률', 2, 10, '%'], ['normal', '일반몹 데미지', 2, 10, '%'], ['arc', '아케인포스', 10, 10, ''],
+  ['aut', '어센틱포스', 5, 10, ''], ['exp', '획득 경험치', 2, 10, '%'],
+];
+const TONIC_BUY = 10; // 구매 1회당 칩
+const tonicOf = () => (S.etc.tonic = S.etc.tonic || { lv: {}, chips: 20 });
+const tonicCost = lv => lv + 1;
+const tonicVal = k => { const T = TONIC.find(x => x[0] === k); return (tonicOf().lv[k] || 0) * T[2]; };
+function tonicHtml() {
+  const tn = tonicOf();
+  return `<div class="tonic">
+    <div class="tonic-head"><b>훈련 일지</b><span class="muted small">코인샵 보약 · 이 캐릭터만</span><button class="sm tonic-btn right" data-act="tonicReset">전체 초기화</button></div>
+    <div class="tonic-bar">
+      <span>◆ 전투 훈련</span>
+      <span class="tonic-chip">🎟️ 전투 훈련 칩 <b>${fmt(tn.chips)}</b>개 <button class="sm tonic-btn" data-act="tonicBuy">구매하기</button></span>
+    </div>
+    <div class="tonic-grid">${TONIC.map(([k, n, per, max, u]) => {
+      const lv = tn.lv[k] || 0, cost = tonicCost(lv), done = lv >= max;
+      return `<div class="tonic-card">
+        <div class="tonic-lv">Lv. ${lv}</div>
+        <div class="tonic-name">${n}</div>
+        <div class="tonic-val">${+(lv * per).toFixed(2)}${lv ? u : ''}</div>
+        <div class="tonic-cost">🎟️ ${done ? 'MAX' : cost}</div>
+        <button class="sm tonic-btn" data-act="tonicTrain" data-k="${k}" ${!done && tn.chips >= cost ? '' : 'disabled'}>훈련하기</button>
+      </div>`;
+    }).join('')}</div>
+    <p class="muted small">훈련할 때마다 칩이 (현재 레벨 + 1)개 들어요 · 최대 Lv.10 · 구매하기 1회 = 칩 ${TONIC_BUY}개. 전투력에는 공격력/마력 · 보스 데미지 · 방어율 무시 · 올스탯이 반영돼요. 수치는 근사치예요.</p>
+  </div>`;
 }
 function renderPanel() {
   const el = $('#modal');
@@ -1891,6 +1926,17 @@ document.addEventListener('click', e => {
       if (b.dataset.p === 'champ') ACC.union.champ = [5, 5, 5, 5, 5, 5];
       else { const R = ACC.union.raid; ['cd', 'boss', 'ied'].forEach(k => (R[k] = 0)); ['cd', 'boss', 'ied'].forEach(k => { R[k] = Math.max(0, Math.min(40, raidPts() - raidUsed())); }); }
       refresh(); break;
+    case 'tonicBuy': tonicOf().chips += TONIC_BUY; S.log.tonicBuy = (S.log.tonicBuy || 0) + 1; refresh(); break;
+    case 'tonicTrain': {
+      const tn = tonicOf(), k = b.dataset.k, lv = tn.lv[k] || 0, T = TONIC.find(x => x[0] === k);
+      if (lv < T[3] && tn.chips >= tonicCost(lv)) { tn.chips -= tonicCost(lv); tn.lv[k] = lv + 1; setMsg(`${T[1]} Lv.${lv + 1}!`, 'ok'); }
+      refresh(); break;
+    }
+    case 'tonicReset': {
+      const tn = tonicOf();
+      Object.values(tn.lv).forEach(lv => { for (let i = 0; i < lv; i++) tn.chips += tonicCost(i); });
+      tn.lv = {}; setMsg('훈련을 전부 초기화하고 칩을 돌려받았어요.'); refresh(); break;
+    }
     case 'raid': {
       const k = b.dataset.k, n = ACC.union.raid[k] || 0;
       if (+b.dataset.d > 0 && n < RAID[k][2] && raidUsed() < raidPts()) ACC.union.raid[k] = n + 1;

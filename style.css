@@ -281,3 +281,22 @@ button.white { background: #e8e8f0; color: #1a1a22; }
 .set-ctrl { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 4px; }
 .set-ctrl label { font-size: 12px; color: var(--muted); display: flex; flex-direction: column; gap: 2px; }
 .set-ctrl select { background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; font: inherit; font-size: 12px; }
+
+/* 코인샵 보약 (훈련 일지) */
+.tonic { margin-top: 12px; border-radius: 12px; padding: 12px; background: linear-gradient(160deg, #4a2a8a, #2d1a5e 60%, #251650); border: 2px solid #8f6ae0; box-shadow: inset 0 0 20px rgba(160,120,255,.25); color: #fff; }
+.tonic-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+.tonic-head b { font-size: 20px; letter-spacing: 1px; text-shadow: 0 0 8px rgba(200,170,255,.7); }
+.tonic-head .muted { color: #c9b8f0; }
+.tonic-head .right { margin-left: auto; }
+.tonic-bar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; background: rgba(0,0,0,.2); border-radius: 8px; padding: 6px 10px; margin-bottom: 10px; }
+.tonic-chip b { color: #ffe27a; }
+.tonic-btn { background: linear-gradient(180deg, #e05ae0, #a12fb8); border: 1px solid #f3a3ff; color: #fff; border-radius: 99px; font-weight: bold; }
+.tonic-btn:disabled { background: #5a4a7a; border-color: #6d5a90; }
+.tonic-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 6px; }
+.tonic-card { background: linear-gradient(180deg, #f6eefe, #e3d3fa); color: #3a2466; border: 2px solid #b48cf0; border-radius: 10px; padding: 6px 4px; display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; }
+.tonic-lv { font-size: 10px; color: #7a5cb8; font-weight: bold; }
+.tonic-name { font-size: 12px; font-weight: bold; min-height: 30px; display: flex; align-items: center; }
+.tonic-val { font-size: 16px; font-weight: bold; }
+.tonic-cost { font-size: 11px; color: #7a5cb8; }
+.tonic-card .tonic-btn { padding: 2px 8px; font-size: 11px; }
+.tonic .muted.small { color: #c9b8f0; margin: 8px 0 0; }
