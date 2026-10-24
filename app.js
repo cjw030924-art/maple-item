@@ -61,6 +61,9 @@ function load(name) {
   S.inv.forEach(i => { if (i.id === '펫장비') i.id = '1802653'; }); // 예전 펫장비 → 루나 크리스탈 키
   S.hyper = S.hyper || {};
   S.abil = S.abil || { grade: 0, lines: [abilLine(0), abilLine(0), abilLine(0)] };
+  S.art = S.art || PANEL_BLANK.art();
+  S.hexa = S.hexa || PANEL_BLANK.hexa();
+  S.etc = S.etc || PANEL_BLANK.etc();
   UNION = null;
   cls = CLASSES.find(c => c.name === name);
   // 예전 버전 데이터에 남은 없어진 아이템 정리
@@ -106,7 +109,7 @@ const LAYOUT = [
   ['반지3', '귀고리', '보조', '하의', '신발'],
   ['반지4', '펜던트1', '엠블렘', '어깨', '뱃지'],
   ['벨트', '펜던트2', null, null, '훈장'],
-  ['포켓', null, null, 'EMPTY', '하트'],
+  ['포켓', 'ART', 'HEXA', 'ETC', '하트'],
   ['펫장비1', '펫장비2', '펫장비3', 'ABIL', 'HYPER'],
 ];
 const SLOT_CHIPS = ['전체', '무기', '보조', '엠블렘', '모자', '상의', '하의', '신발', '장갑', '망토', '어깨', '벨트', '얼굴', '눈', '귀고리', '반지', '펜던트', '포켓', '뱃지', '훈장', '하트', '펫장비'];
@@ -421,14 +424,26 @@ function totals(eq = S.eq) {
   const U = getUnion();
   r.att += U.att; r.boss += U.boss;
   const H = hyperStat(), AB = abilStat();
-  r.main += H.main + AB.main; r.att += H.att + AB.att; r.boss += H.boss + AB.boss; r.dmg += H.dmg; r.cd += H.cd;
+  r.main += AB.main; r.att += H.att + AB.att; r.boss += H.boss + AB.boss; r.dmg += H.dmg; r.cd += H.cd;
   if (H.ied) keep *= 1 - H.ied / 100;
+  // 아티팩트 / 헥사 스탯 / 기타(유챔 휘장·공격대 점령·직접 입력)
+  const X = [artStat(), hexaStat(), etcStat()];
+  r.fd = 0; r.mainFlat = 0;
+  X.forEach(x => {
+    r.main += x.all || 0; r.sub += x.all || 0; r.mainFlat += x.flat || 0; r.mainPct += x.mainPct || 0;
+    r.att += x.att || 0; r.attPct += x.attPct || 0; r.dmg += x.dmg || 0; r.boss += x.boss || 0;
+    r.cd += x.cd || 0; r.fd += x.fd || 0;
+    (x.ied || []).forEach(v => (keep *= 1 - v / 100));
+  });
   r.ied = (1 - keep) * 100;
   r.sym = symStat();
+  // % 미적용 주스탯: 심볼 · 유니온 · 하이퍼 스탯 · 헥사 스탯 · 공격대 점령 등
+  r.mainFlat += r.sym + U.main + H.main;
   const BASE_MAIN = 18 + 5 * (S.level - 1), BASE_SUB = 4;
-  r.mainTot = Math.floor((BASE_MAIN + r.main + U.main) * (1 + r.mainPct / 100) + r.sym);
+  r.mainTot = Math.floor((BASE_MAIN + r.main) * (1 + r.mainPct / 100) + r.mainFlat);
   const statScore = (4 * r.mainTot + BASE_SUB + r.sub) / 100;
-  r.power = Math.floor(statScore * r.att * (1 + r.attPct / 100) * (1 + (r.dmg + r.boss) / 100) * (1 + (35 + r.cd) / 100));
+  // 게임 전투력: 스탯 × 공/마 × 데미지(데미지%+보공%) × 최종 데미지 × 크리티컬(135% + 크뎀%), 방무는 미반영
+  r.power = Math.floor(statScore * r.att * (1 + r.attPct / 100) * (1 + (r.dmg + r.boss) / 100) * (1 + r.fd / 100) * (1 + (35 + r.cd) / 100));
   return r;
 }
 
@@ -629,7 +644,9 @@ function summaryHtml() {
     ${box(ATT_NAME() + ' %', r.attPct + '%')}
     ${box('보스 데미지', r.boss + '%')}
     ${box('방어율 무시', r.ied.toFixed(1) + '%')}
-    ${box('크리티컬 데미지', r.cd + '%')}
+    ${box('크리티컬 데미지', +r.cd.toFixed(2) + '%')}
+    ${box('최종 데미지', +r.fd.toFixed(2) + '%')}
+    ${box(`% 미적용 ${cls.main}`, '+' + fmt(r.mainFlat))}
     ${r.radiance ? box('광휘 세트', r.radiance + '세트 효과') : ''}
     ${r.eternal >= 2 ? box('에테르넬 세트', r.eternal + '세트 효과') : ''}    ${box('사용 메소', fmtMeso(L.meso))}
     ${box('스타포스 시도', fmt(L.sf))}
@@ -677,6 +694,9 @@ function equipHtml() {
     if (!k) return '<div class="slot blank"></div>';
     if (k === 'EMPTY') return '<div class="slot locked"></div>';
     if (k === 'ABIL') return `<div class="slot filled g${S.abil.grade}" data-act="panel" data-panel="abil"><span class="slot-name">어빌리티</span><span class="slot-txt gt${S.abil.grade}">${GRADES[S.abil.grade]}</span></div>`;
+    if (k === 'ART') return `<div class="slot filled" data-act="panel" data-panel="art"><span class="slot-name">아티팩트</span><span class="slot-txt">Lv.${S.art.lv}</span></div>`;
+    if (k === 'HEXA') return `<div class="slot filled" data-act="panel" data-panel="hexa"><span class="slot-name">헥사 스탯</span><span class="slot-txt">${S.hexa.reduce((a, c) => a + hexaLv(c), 0)} / 60</span></div>`;
+    if (k === 'ETC') return `<div class="slot filled" data-act="panel" data-panel="etc"><span class="slot-name">기타 스탯</span><span class="slot-txt">유챔·공격대</span></div>`;
     if (k === 'HYPER') return `<div class="slot filled" data-act="panel" data-panel="hyper"><span class="slot-name">하이퍼 스탯</span><span class="slot-txt">${hyperUsed()} / ${hyperTotal()}</span></div>`;
     if (k === '하의') {
       const top = S.eq['상의'] && findItem(S.eq['상의']);
@@ -1428,13 +1448,165 @@ function abilStat() {
   });
   return r;
 }
-// 어빌/하이퍼를 뺐을 때와의 전투력 차이
+// ===== 아티팩트 / 헥사 스탯 / 기타 스탯 =====
+// 아티팩트 옵션 Lv.10 수치는 인게임·나무위키 기준, 크리스탈 AP 비용은 근사치 (Lv.60 = AP 72 = 크리스탈 9개 5단계)
+const ART_OPTS = {
+  all: ['올스탯', l => 15 * l, ''], att: ['공격력/마력', l => 3 * l, ''], hp: ['최대 HP/MP', l => 750 * l, ''],
+  dmg: ['데미지', l => 1.5 * l, '%'], boss: ['보스 몬스터 공격 시 데미지', l => 1.5 * l, '%'],
+  ied: ['몬스터 방어율 무시', l => 2 * l, '%'], buff: ['버프 지속시간', l => 2 * l, '%'],
+  cdskip: ['재사용 대기시간 미적용 확률', l => 0.75 * l, '%'], meso: ['메소 획득량', l => l + (l >= 5) + (l >= 10), '%'],
+  drop: ['아이템 드롭률', l => l + (l >= 5) + (l >= 10), '%'], crit: ['크리티컬 확률', l => 2 * l, '%'],
+  cd: ['크리티컬 데미지', l => 0.4 * l, '%'], exp: ['추가 경험치 획득', l => l + (l >= 5) + (l >= 10), '%'],
+};
+const ART_CRY_AP = [1, 1, 2, 2, 2]; // 크리스탈 Lv.1~5 올릴 때 AP
+const artCryMax = lv => Math.min(9, 3 + Math.floor(lv / 10));
+const artApTotal = lv => lv + Math.floor(lv / 5);
+const artApUsed = () => S.art.crystals.reduce((a, c) => a + ART_CRY_AP.slice(0, c.lv).reduce((x, y) => x + y, 0), 0);
+const artCrystal = i => (S.art.crystals[i] = S.art.crystals[i] || { lv: 0, opts: ['all', 'att', 'hp'] });
+function artLevels() {
+  const L = {};
+  S.art.crystals.forEach(c => c && c.lv && c.opts.forEach(k => (L[k] = Math.min(10, (L[k] || 0) + c.lv))));
+  return L;
+}
+function artStat() {
+  const L = artLevels(), v = k => (L[k] ? ART_OPTS[k][1](L[k]) : 0);
+  return { all: v('all'), att: v('att'), dmg: v('dmg'), boss: v('boss'), cd: v('cd'), ied: L.ied ? [v('ied')] : [] };
+}
+function artCryUp(i) {
+  const c = artCrystal(i);
+  if (i >= artCryMax(S.art.lv) || c.lv >= 5 || artApUsed() + ART_CRY_AP[c.lv] > artApTotal(S.art.lv)) return false;
+  c.lv++; return true;
+}
+
+// HEXA 스탯 코어 I·II·III: 메인 Lv.10 + 추가 2종 Lv.10씩, 코어당 총 20레벨 (수치·확률·조각 수는 근사치)
+const HEXA_STATS = {
+  cd: ['크리티컬 데미지', 0.35, '%'], boss: ['보스 몬스터 공격 시 데미지', 1, '%'], ied: ['몬스터 방어율 무시', 1, '%'],
+  dmg: ['데미지', 0.75, '%'], att: ['', 5, ''], main: ['', 100, ''],
+};
+const HEXA_STEP = [1, 1, 1, 1, 2, 2, 2, 3, 3, 4];
+const HEXA_MAIN_UP = [0.35, 0.35, 0.35, 0.2, 0.2, 0.2, 0.15, 0.1, 0.05, 0.01];
+const hexaCost = lv => [10, 20, 30, 40][Math.floor(lv / 5)];
+const hexaLv = c => c.ml + c.al[0] + c.al[1];
+const hexaName = k => (k === 'att' ? ATT_NAME() : k === 'main' ? cls.main : HEXA_STATS[k][0]);
+const hexaMainVal = (k, l) => +(HEXA_STATS[k][1] * HEXA_STEP.slice(0, l).reduce((a, b) => a + b, 0)).toFixed(2);
+const hexaAddVal = (k, l) => +(HEXA_STATS[k][1] * 0.5 * l).toFixed(3);
+const hexaOpen = i => i === 0 || hexaLv(S.hexa[i - 1]) >= 20;
+function hexaUp(i) {
+  const c = S.hexa[i];
+  if (!hexaOpen(i) || hexaLv(c) >= 20) return null;
+  S.log.erda = (S.log.erda || 0) + hexaCost(hexaLv(c));
+  if (c.ml < 10 && rnd() < HEXA_MAIN_UP[c.ml]) { c.ml++; return 'main'; }
+  const j = c.al[0] >= 10 ? 1 : c.al[1] >= 10 ? 0 : rnd() < 0.5 ? 0 : 1;
+  c.al[j]++; return 'add';
+}
+function hexaStat() {
+  const r = { flat: 0, att: 0, boss: 0, dmg: 0, cd: 0, ied: [] };
+  const add = (k, v) => { if (!v) return; if (k === 'main') r.flat += v; else if (k === 'ied') r.ied.push(v); else r[k] += v; };
+  S.hexa.forEach(c => {
+    add(c.main, hexaMainVal(c.main, c.ml));
+    c.add.forEach((k, j) => add(k, hexaAddVal(k, c.al[j])));
+  });
+  return r;
+}
+
+// 유니온 챔피언 휘장 (등급 누적: B 올스탯 20 · A 공/마 10 · S 보공 5% · SS 크뎀 3% · SSS 방무 5%)
+const CHAMP_GRADES = ['없음', 'B', 'A', 'S', 'SS', 'SSS'];
+// 유니온 공격대 점령: [이름, 칸당 수치, 최대 칸, 단위]
+const RAID = {
+  main: ['', 5, 15, ''], att: ['', 1, 15, ''], cd: ['크리티컬 데미지', 0.5, 40, '%'], boss: ['보스 데미지', 1, 40, '%'],
+  ied: ['방어율 무시', 1, 40, '%'], crit: ['크리티컬 확률', 1, 40, '%'], buff: ['버프 지속 시간', 1, 40, '%'],
+};
+const raidName = k => (k === 'main' ? cls.main : k === 'att' ? ATT_NAME() : RAID[k][0]);
+// 공격대원 블록 크기(레벨별)로 점령 포인트 계산, 상위 40명
+const raidPtsAuto = () => getUnion().chars.slice(0, 40).reduce((a, c) => a + (c.lv >= 250 ? 5 : c.lv >= 200 ? 4 : c.lv >= 140 ? 3 : c.lv >= 100 ? 2 : c.lv >= 60 ? 1 : 0), 0);
+const raidPts = () => (S.etc.raidPts != null ? S.etc.raidPts : raidPtsAuto());
+const raidUsed = () => Object.values(S.etc.raid).reduce((a, b) => a + b, 0);
+const ETC_EX = [['flat', () => `${cls.main} (% 미적용)`], ['mainPct', () => `${cls.main} %`], ['att', () => ATT_NAME()], ['attPct', () => ATT_NAME() + ' %'],
+  ['dmg', () => '데미지 %'], ['boss', () => '보스 데미지 %'], ['fd', () => '최종 데미지 %'], ['cd', () => '크리티컬 데미지 %'], ['ied', () => '방어율 무시 %']];
+function etcStat() {
+  const E = S.etc, ch = n => E.champ.filter(g => g >= n).length, rd = k => (E.raid[k] || 0) * RAID[k][1], x = E.ex;
+  const r = { all: 20 * ch(1), att: 10 * ch(2) + rd('att') + (x.att || 0), boss: 5 * ch(3) + rd('boss') + (x.boss || 0), cd: 3 * ch(4) + rd('cd') + (x.cd || 0),
+    flat: rd('main') + (x.flat || 0), mainPct: x.mainPct || 0, attPct: x.attPct || 0, dmg: x.dmg || 0, fd: x.fd || 0, ied: [] };
+  [5 * ch(5), rd('ied'), x.ied || 0].forEach(v => v && r.ied.push(v));
+  return r;
+}
+
+const PANEL_BLANK = {
+  abil: () => ({ grade: 0, lines: [] }), hyper: () => ({}), art: () => ({ lv: 1, crystals: [] }),
+  hexa: () => [0, 1, 2].map(() => ({ main: 'boss', add: ['att', 'main'], ml: 0, al: [0, 0] })),
+  etc: () => ({ champ: [0, 0, 0, 0, 0, 0], raid: {}, raidPts: null, ex: {} }),
+};
+// 이 창의 효과를 뺐을 때와의 전투력 차이
 function panelContrib(kind) {
-  const now = totals().power, keep = kind === 'abil' ? S.abil : S.hyper;
-  if (kind === 'abil') S.abil = { grade: 0, lines: [] }; else S.hyper = {};
+  const now = totals().power, keep = S[kind];
+  S[kind] = PANEL_BLANK[kind]();
   const without = totals().power;
-  if (kind === 'abil') S.abil = keep; else S.hyper = keep;
+  S[kind] = keep;
   return now - without;
+}
+const setPath = (path, v) => { const ks = path.split('.'); let o = S; ks.slice(0, -1).forEach(k => (o = o[k])); o[ks[ks.length - 1]] = v; };
+
+function artPanel() {
+  const A = S.art, L = artLevels(), used = artApUsed(), total = artApTotal(A.lv), open = artCryMax(A.lv);
+  return `<h3>유니온 아티팩트 <span class="muted small">Lv.${A.lv} · AP ${used} / ${total}</span></h3>
+    <div class="actions">
+      <button class="primary" data-act="artLv" data-n="1" ${A.lv >= 60 ? 'disabled' : ''}>레벨 업</button>
+      <button data-act="artLv" data-n="10" ${A.lv >= 60 ? 'disabled' : ''}>+10</button>
+      <button data-act="artLv" data-n="60" ${A.lv >= 60 ? 'disabled' : ''}>MAX (60)</button>
+      <button data-act="artReset" ${used ? '' : 'disabled'}>AP 초기화</button>
+    </div>
+    <div class="art-grid">${Array.from({ length: 9 }, (_, i) => {
+      const c = A.crystals[i] || { lv: 0, opts: ['all', 'att', 'hp'] }, lock = i >= open;
+      if (lock) return `<div class="art-cry locked"><b>🔒</b><span class="muted small">아티팩트 Lv.${(i - 2) * 10}</span></div>`;
+      const can = c.lv < 5 && used + ART_CRY_AP[c.lv] <= total;
+      return `<div class="art-cry ${c.lv ? 'on' : ''}">
+        <div class="art-stars">${'◆'.repeat(c.lv)}<span>${'◇'.repeat(5 - c.lv)}</span></div>
+        ${c.opts.map((k, j) => `<select data-cry="${i}.${j}">${Object.entries(ART_OPTS).map(([o, [n]]) => `<option value="${o}" ${o === k ? 'selected' : ''}>${n}</option>`).join('')}</select>`).join('')}
+        <button class="sm primary" data-act="artCry" data-i="${i}" ${can ? '' : 'disabled'}>${c.lv >= 5 ? 'MAX' : `강화 (AP ${ART_CRY_AP[c.lv]})`}</button>
+      </div>`;
+    }).join('')}</div>
+    <div class="pot-title">아티팩트 효과</div>
+    <div class="art-eff">${Object.entries(L).sort((a, b) => b[1] - a[1]).map(([k, l]) => `<div>Lv.${l} ${ART_OPTS[k][0]} ${+ART_OPTS[k][1](l).toFixed(2)}${ART_OPTS[k][2]} 증가</div>`).join('') || '<span class="muted small">크리스탈을 강화하면 효과가 생겨요.</span>'}</div>
+    <p class="muted small">크리스탈 레벨만큼 그 크리스탈의 옵션 3개 레벨이 올라요 (옵션별 최대 Lv.10). 아티팩트 레벨 10마다 크리스탈 칸이 열려요.</p>`;
+}
+function hexaPanel() {
+  return `<h3>HEXA 스탯 <span class="muted small">솔 에르다 조각 ${fmt(S.log.erda || 0)}개 사용</span></h3>
+    ${S.hexa.map((c, i) => {
+      const open = hexaOpen(i), lv = hexaLv(c), keys = Object.keys(HEXA_STATS), fixed = lv > 0;
+      const sel = (path, v, others) => `<select data-hexa="${i}.${path}" ${fixed || !open ? 'disabled' : ''}>${keys.map(k => `<option value="${k}" ${k === v ? 'selected' : ''} ${others.includes(k) ? 'disabled' : ''}>${hexaName(k)}</option>`).join('')}</select>`;
+      return `<div class="auto-cube hexa-core ${open ? '' : 'locked'}">
+        <div class="pot-title">HEXA 스탯 코어 ${['I', 'II', 'III'][i]} <span class="muted small">${open ? `Lv.${lv} / 20` : `코어 ${['I', 'II'][i - 1]}을 20레벨까지 올리면 열려요`}</span></div>
+        <div class="hexa-row"><span class="hexa-tag">메인</span>${sel('main', c.main, c.add)}<b>Lv.${c.ml}</b><span class="hv">+${hexaMainVal(c.main, c.ml)}${HEXA_STATS[c.main][2]}</span></div>
+        ${c.add.map((k, j) => `<div class="hexa-row"><span class="hexa-tag add">추가</span>${sel('add.' + j, k, [c.main, c.add[1 - j]])}<b>Lv.${c.al[j]}</b><span class="hv">+${hexaAddVal(k, c.al[j])}${HEXA_STATS[k][2]}</span></div>`).join('')}
+        <div class="actions">
+          <button class="primary" data-act="hexaUp" data-i="${i}" ${open && lv < 20 ? '' : 'disabled'}>강화 (조각 ${lv < 20 ? hexaCost(lv) : '-'})</button>
+          <button data-act="hexaAuto" data-i="${i}" ${open && lv < 20 ? '' : 'disabled'}>▶ 20레벨까지</button>
+          <button class="sm" data-act="hexaReset" data-i="${i}" ${lv ? '' : 'disabled'}>초기화 (1,000만 메소)</button>
+          ${open && lv < 20 ? `<span class="muted small">메인 상승 ${Math.round(HEXA_MAIN_UP[c.ml] * 100)}%</span>` : ''}
+        </div></div>`;
+    }).join('')}
+    <p class="muted small">강화할 때마다 메인 또는 추가 스탯 중 하나가 1레벨 올라요. 메인 스탯은 레벨이 높을수록 오르기 어려워요. 스탯 종류는 0레벨일 때만 바꿀 수 있어요. ${cls.main}은 % 미적용 스탯이에요.</p>`;
+}
+function etcPanel() {
+  const E = S.etc, pts = raidPts(), used = raidUsed();
+  return `<h3>기타 스탯</h3>
+    <div class="auto-cube">
+      <div class="pot-title">유니온 챔피언 휘장 <button class="sm right" data-act="etcPreset" data-p="champ">전부 SSS</button></div>
+      <div class="champ-grid">${E.champ.map((g, i) => `<label>챔피언 ${i + 1} <select data-set="etc.champ.${i}">${CHAMP_GRADES.map((n, v) => `<option value="${v}" ${g === v ? 'selected' : ''}>${n}</option>`).join('')}</select></label>`).join('')}</div>
+      <p class="muted small">등급별 누적: B 올스탯 +20 · A ${ATT_NAME()} +10 · S 보공 5% · SS 크뎀 3% · SSS 방무 5% (6명 SSS = 올스탯 120 · ${ATT_NAME()} 60 · 보공 30% · 크뎀 18% · 방무 30%)</p>
+    </div>
+    <div class="auto-cube">
+      <div class="pot-title">유니온 공격대 점령 <span class="muted small">POINT ${used} / ${pts}</span> <button class="sm right" data-act="etcPreset" data-p="raid">크뎀·보공·방무 40</button></div>
+      <div class="raid-grid">${Object.keys(RAID).map(k => { const n = E.raid[k] || 0, [, per, max, u] = RAID[k]; return `<div class="raid-cell">
+        <span class="muted small">${n} / ${max}</span><b>${raidName(k)}</b><span class="hv">${+(n * per).toFixed(2)}${u}</span>
+        <div><button class="sm" data-act="raid" data-k="${k}" data-d="-1" ${n ? '' : 'disabled'}>−</button><button class="sm primary" data-act="raid" data-k="${k}" data-d="1" ${n < max && used < pts ? '' : 'disabled'}>+</button></div></div>`; }).join('')}</div>
+      <div class="goal">점령 포인트 <input type="number" min="0" data-set="etc.raidPts" value="${pts}"> <span class="muted small">(비워 두면 내 캐릭터 레벨로 자동 계산 · 게임 유니온 창의 POINT 값을 넣으면 정확해요)</span></div>
+    </div>
+    <div class="auto-cube">
+      <div class="pot-title">직접 입력 <span class="muted small">길드 스킬 · 링크 스킬 · 직업 패시브 · 칭호 · 도핑 등</span></div>
+      <div class="ex-grid">${ETC_EX.map(([k, n]) => `<label>${n()} <input type="number" step="any" data-set="etc.ex.${k}" value="${E.ex[k] || 0}"></label>`).join('')}</div>
+      <p class="muted small">게임 스탯창 수치에서 여기 사이트에 없는 부분만 더하면 실제 전투력과 가까워져요. 특히 최종 데미지는 직업 패시브에서 크게 들어와요.</p>
+    </div>`;
 }
 function renderPanel() {
   const el = $('#modal');
@@ -1448,7 +1620,10 @@ function renderPanel() {
         <span class="badge b${l.g}">${GRADE_LETTER[l.g]}</span> ${abilText(l)}</label>`).join('')}</div>
       <div class="actions"><button class="primary" data-act="abilRoll" ${nl >= 3 ? 'disabled' : ''}>재설정 (명성치 ${fmt(ABIL_COST[Math.min(nl, 2)])})</button></div>
       <p class="muted small">체크한 줄은 잠가서 유지돼요 (명성치 추가). 등급업 확률: 레어→에픽 15% · 에픽→유니크 4.5% · 유니크→레전드리 1%. 전투력에는 ${cls.main} · ${ATT_NAME()} · 보스 데미지 줄이 반영돼요.</p>`;
-  } else {
+  } else if (M.panel === 'art') body = artPanel();
+  else if (M.panel === 'hexa') body = hexaPanel();
+  else if (M.panel === 'etc') body = etcPanel();
+  else {
     const used = hyperUsed(), total = hyperTotal();
     body = `<h3>하이퍼 스탯 <span class="muted small">포인트 ${used} / ${total} (남은 ${total - used})</span></h3>
       <div class="hyper-list">${HYPER.map(h => {
@@ -1598,6 +1773,33 @@ document.addEventListener('click', e => {
       refresh(); break;
     }
     case 'hyperReset': S.hyper = {}; refresh(); break;
+    case 'artLv': {
+      const to = Math.min(60, +b.dataset.n === 60 ? 60 : S.art.lv + +b.dataset.n);
+      S.log.artLv = (S.log.artLv || 0) + (to - S.art.lv); S.art.lv = to;
+      setMsg(`아티팩트 Lv.${to}`, 'ok'); refresh(); break;
+    }
+    case 'artCry': if (artCryUp(+b.dataset.i)) setMsg(`크리스탈 ${+b.dataset.i + 1} → ${S.art.crystals[+b.dataset.i].lv}단계`, 'ok'); refresh(); break;
+    case 'artReset': S.art.crystals.forEach(c => c && (c.lv = 0)); setMsg('AP를 초기화했어요.'); refresh(); break;
+    case 'hexaUp': {
+      const r = hexaUp(+b.dataset.i);
+      setMsg(r === 'main' ? '✨ 메인 스탯 레벨 업!' : r === 'add' ? '추가 스탯 레벨 업' : '더 강화할 수 없어요.', r === 'main' ? 'ok' : ''); refresh(); break;
+    }
+    case 'hexaAuto': {
+      const c = S.hexa[+b.dataset.i], e0 = S.log.erda || 0;
+      while (hexaUp(+b.dataset.i));
+      setMsg(`20레벨 완료! 메인 Lv.${c.ml} · 조각 ${fmt((S.log.erda || 0) - e0)}개`, c.ml >= 8 ? 'ok' : ''); refresh(); break;
+    }
+    case 'hexaReset': { const c = S.hexa[+b.dataset.i]; c.ml = 0; c.al = [0, 0]; S.log.meso += 1e7; setMsg('HEXA 스탯 코어를 초기화했어요.'); refresh(); break; }
+    case 'etcPreset':
+      if (b.dataset.p === 'champ') S.etc.champ = [5, 5, 5, 5, 5, 5];
+      else { const R = S.etc.raid; ['cd', 'boss', 'ied'].forEach(k => (R[k] = 0)); ['cd', 'boss', 'ied'].forEach(k => { R[k] = Math.max(0, Math.min(40, raidPts() - raidUsed())); }); }
+      refresh(); break;
+    case 'raid': {
+      const k = b.dataset.k, n = S.etc.raid[k] || 0;
+      if (+b.dataset.d > 0 && n < RAID[k][2] && raidUsed() < raidPts()) S.etc.raid[k] = n + 1;
+      else if (+b.dataset.d < 0 && n) S.etc.raid[k] = n - 1;
+      refresh(); break;
+    }
     case 'rmCustom':
       if (!confirm('등록한 아이템을 목록에서 지울까요?')) return;
       if (S.inv.some(i => i.id === b.dataset.id)) { toast('갖고 있는 아이템이라 지울 수 없어요'); return; }
@@ -1635,6 +1837,22 @@ document.addEventListener('input', e => {
   if (e.target.id === 'q') { UI.q = e.target.value; $('#results').innerHTML = resultsHtml(); }
 });
 document.addEventListener('change', e => {
+  if (e.target.dataset && e.target.dataset.set && S) {
+    const path = e.target.dataset.set, v = e.target.value;
+    setPath(path, path === 'etc.raidPts' && v === '' ? null : +v || 0);
+    if (raidUsed() > raidPts()) S.etc.raid = {}; // 포인트가 줄면 배분 초기화
+    refresh(); return;
+  }
+  if (e.target.dataset && e.target.dataset.cry && S) {
+    const [i, j] = e.target.dataset.cry.split('.').map(Number), c = artCrystal(i), k = e.target.value, dup = c.opts.indexOf(k);
+    if (dup >= 0 && dup !== j) c.opts[dup] = c.opts[j]; // 같은 크리스탈 안 중복이면 서로 바꿈
+    c.opts[j] = k; refresh(); return;
+  }
+  if (e.target.dataset && e.target.dataset.hexa && S) {
+    const [i, ...p] = e.target.dataset.hexa.split('.'), c = S.hexa[+i];
+    if (p[0] === 'main') c.main = e.target.value; else c.add[+p[1]] = e.target.value;
+    refresh(); return;
+  }
   if (e.target.dataset && e.target.dataset.soul && M) { M.soulSel[e.target.dataset.soul] = e.target.value; return; }
   if (e.target.dataset && e.target.dataset.sgoal && M) { M.soulGoal[e.target.dataset.sgoal] = +e.target.value; return; }
   if (e.target.dataset && e.target.dataset.alock && M) { M.locks[+e.target.dataset.alock] = e.target.checked; renderModal(); return; }

@@ -240,3 +240,25 @@ button.white { background: #e8e8f0; color: #1a1a22; }
 .tt-soul-name { text-align: center; color: #ffcc22; font-weight: bold; margin-top: 4px; }
 .soul-c { color: #ffcc22; font-weight: bold; }
 .badge.bn { background: #bbb; }
+
+/* 아티팩트 / 헥사 스탯 / 기타 스탯 */
+.art-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 8px 0; }
+.art-cry { background: #0e1017; border: 1px solid var(--line); border-radius: 10px; padding: 6px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.art-cry.on { border-color: #6ec6ff; box-shadow: 0 0 10px rgba(110,198,255,.25); }
+.art-cry.locked { align-items: center; justify-content: center; opacity: .5; min-height: 120px; }
+.art-cry select, .hexa-row select, .champ-grid select, .ex-grid input { background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 3px 4px; font: inherit; font-size: 12px; width: 100%; min-width: 0; }
+.art-stars { text-align: center; color: #6ec6ff; letter-spacing: 1px; }
+.art-stars span { color: #3a3f55; }
+.art-eff { background: #0e1017; border-radius: 8px; padding: 8px 10px; font-size: 13px; line-height: 1.6; margin-bottom: 6px; }
+.hexa-core.locked { opacity: .5; }
+.hexa-row { display: grid; grid-template-columns: 40px 1fr 48px 72px; gap: 6px; align-items: center; margin: 3px 0; }
+.hexa-row .hv { color: var(--accent); font-weight: bold; text-align: right; }
+.hexa-tag { font-size: 11px; text-align: center; border-radius: 4px; background: #b072ff; color: #fff; padding: 1px 0; }
+.hexa-tag.add { background: #3a6ea8; }
+.champ-grid, .ex-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 6px 0; }
+.champ-grid label, .ex-grid label { font-size: 12px; color: var(--muted); display: flex; flex-direction: column; gap: 2px; }
+.raid-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 6px 0; }
+.raid-cell { background: #0e1017; border: 1px solid var(--line); border-radius: 8px; padding: 6px; display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; font-size: 13px; }
+.raid-cell .hv { color: var(--accent); font-weight: bold; }
+.raid-cell button { padding: 2px 8px; }
+@media (max-width: 560px) { .art-grid, .champ-grid, .ex-grid { grid-template-columns: repeat(2, 1fr); } .raid-grid { grid-template-columns: repeat(2, 1fr); } }
