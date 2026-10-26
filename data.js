@@ -36,7 +36,17 @@ const WEAPON_TYPES = {"투핸드소드":["Two-Handed Sword","Two-Handed Axe","On
   "너클":["Knuckle"],
   "건":["Gun"],
   "핸드캐논":["Hand Cannon"],
-  "소울 슈터":["Soul Shooter"]};
+  "소울 슈터":["Soul Shooter"],
+  // 아래 무기는 아이템 데이터에 없어서 비슷한 무기를 복사해 만듦 (WEAPON_CLONE)
+  "원핸드도끼":["One-Handed Axe","One-Handed Blunt Weapon"],
+  "데스페라도":["Desperado"],
+  "대검":["Heavy Sword"],
+  "장검":["Long Blade"],
+  "에너지소드":["Energy Sword"],
+  "카르타":["Karta"]};
+// [새 무기 분류, 복사할 무기 분류, 한글 이름]
+const WEAPON_CLONE = [['Desperado', 'Two-Handed Sword', '데스페라도'], ['Heavy Sword', 'Two-Handed Sword', '대검'],
+  ['Long Blade', 'Two-Handed Sword', '장검'], ['Energy Sword', 'One-Handed Sword', '에너지소드', 'thief'], ['Karta', 'Staff', '카르타']];
 
 const CLASSES = [
   ['히어로', 'warrior', 'STR', 'DEX', '투핸드소드'],
@@ -81,6 +91,13 @@ const CLASSES = [
   ['엔젤릭버스터', 'pirate', 'DEX', 'STR', '소울 슈터'],
   ['은월', 'pirate', 'STR', 'DEX', '너클'],
   ['아크', 'pirate', 'STR', 'DEX', '너클'],
+  // 2026.10 기준 나머지 직업 (데몬어벤져 주스탯 HP·제논 STR/DEX/LUK는 근사)
+  ['데몬슬레이어', 'warrior', 'STR', 'DEX', '원핸드도끼'],
+  ['데몬어벤져', 'warrior', 'STR', 'DEX', '데스페라도'],
+  ['제로', 'warrior', 'STR', 'DEX', '대검'],
+  ['렌', 'warrior', 'STR', 'DEX', '장검'],
+  ['제논', 'thief', 'LUK', 'DEX', '에너지소드'],
+  ['레테', 'mage', 'INT', 'LUK', '카르타'],
 ].map(([name, group, main, sub, weapon]) => ({ name, group, main, sub, weapon, weapons: WEAPON_TYPES[weapon] }));
 
 const ITEMS = [...ITEM_DATA];
@@ -130,6 +147,13 @@ ITEMS.push(...DESTINY_DATA);
 
 // 아스트라 보조무기 (3단계, 스타포스 30성까지)
 ITEMS.push(...ASTRA_DATA);
+
+// 데이터에 없는 무기(데스페라도·대검·장검·에너지소드·카르타): 같은 세트의 비슷한 무기 수치를 복사 (이미지 없음)
+WEAPON_CLONE.forEach(([to, from, kr, group]) => ITEMS.filter(t => t.weapon === from).forEach(t => {
+  const words = t.name.split(' ');
+  ITEMS.push({ ...t, id: `${t.id}-${to}`, weapon: to, icon: null, group: group || t.group, only: undefined, onlyAny: undefined,
+    name: words.length > 1 ? `${words.slice(0, -1).join(' ')} ${kr}` : `${t.name} (${kr})` });
+}));
 
 // 컴플리트 언더컨트롤 (하트, Lv.200, 수치: maplestorywiki.net "Total Control")
 ITEMS.push({ id: '하트-컴플리트 언더컨트롤', name: '컴플리트 언더컨트롤', set: '하트', slot: '하트', level: 200, group: 'all',
