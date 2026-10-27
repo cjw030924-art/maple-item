@@ -948,7 +948,7 @@ function scrollList(t) {
   const trace = (rate, stat, att) => ({ id: 'trace' + rate, name: `주문의 흔적 ${rate}% (${m})`, rate: rate / 100,
     desc: [stat && `${m} +${stat}`, att && `${ATT_NAME()} +${att}`].filter(Boolean).join(', '),
     apply: sc => { sc.s[m] += stat; sc[ak] += att; } });
-  const att = (id, name, rate, lo, hi, stat = 0) => ({ id, name: `${name} ${ATT_NAME()} 주문서`, rate,
+  const att = (id, name, rate, lo, hi, stat = 0) => ({ id, name: `${name} ${ATT_NAME()} 주문서`, rate, ret: hi > lo, hi,
     desc: `${ATT_NAME()} +${lo}${hi > lo ? '~' + hi : ''}${stat ? `, ${m} +${stat}` : ''}`,
     apply: sc => { sc[ak] += lo + Math.floor(rnd() * (hi - lo + 1)); sc.s[m] += stat; } });
   const list = [];
@@ -970,8 +970,8 @@ function scrollList(t) {
     if (t.pad) sc.pad += chaosRoll();
     if (t.mad) sc.mad += chaosRoll();
   };
-  list.push({ id: 'chaos', name: '놀라운 긍정의 혼돈 주문서 60%', rate: 0.6, chaos: true, desc: '가진 스탯·공/마 +0~6 랜덤', apply: chaos });
-  list.push({ id: 'chaos100', name: '놀라운 긍정의 혼돈 주문서 100%', rate: 1, chaos: true, desc: '가진 스탯·공/마 +0~6 랜덤', apply: chaos });
+  list.push({ id: 'chaos', name: '놀라운 긍정의 혼돈 주문서 60%', rate: 0.6, chaos: true, ret: true, desc: '가진 스탯·공/마 +0~6 랜덤', apply: chaos });
+  list.push({ id: 'chaos100', name: '놀라운 긍정의 혼돈 주문서 100%', rate: 1, chaos: true, ret: true, desc: '가진 스탯·공/마 +0~6 랜덤', apply: chaos });
   return list;
 }
 function useScroll(it, sid) {
@@ -1020,10 +1020,11 @@ function deltaHtml(d, r) {
 // ===== 리턴 + 놀긍혼 자동 =====
 function startChaosAuto() {
   const it = findItem(M.uid), sr = scrollList(TPL[it.id]).find(x => x.id === M.scroll);
-  if (!sr || !sr.chaos) { setMsg('놀긍혼 주문서를 먼저 골라주세요.', 'bad'); renderModal(); return; }
+  if (!sr || !sr.ret) { setMsg('리턴을 쓸 수 있는 주문서를 먼저 골라주세요.', 'bad'); renderModal(); return; }
   if (scLeft(it) <= 0) { setMsg('남은 업그레이드 횟수가 없어요.', 'bad'); renderModal(); return; }
-  const g = M.chaosGoal;
-  const A = M.chaosAuto = { tries: 0, last: null, lastR: null, done: false };
+  const g = sr.chaos ? M.chaosGoal : { att: M.chaosGoal.att, main: 0 };
+  if (!sr.chaos && g.att > sr.hi) { setMsg(`이 주문서는 최대 ${ATT_NAME()} +${sr.hi}까지예요.`, 'bad'); renderModal(); return; }
+  const A = M.chaosAuto = { tries: 0, last: null, lastR: null, done: false, good: 0 };
   const step = () => {
     if (!M || M.chaosAuto !== A || A.done) return;
     const before = cloneSc(scOf(it));
@@ -1031,7 +1032,9 @@ function startChaosAuto() {
     const d = scDelta(before, scOf(it));
     A.tries++; A.last = d; A.lastR = r;
     if (r === 'success' && d.att >= g.att && d.main >= g.main) {
-      A.done = true; stopChaosAuto(`목표 달성! ${fmt(A.tries)}번째 놀긍혼 (리턴 ${fmt(A.tries - 1)}장)`); return;
+      A.good++;
+      if (M.retAll !== false && scLeft(it) > 0) { const live = $('#chaosLive'); if (live) live.innerHTML = chaosLiveHtml(A); return; }
+      A.done = true; stopChaosAuto(`목표 달성! 주문서 ${fmt(A.tries)}장 · 리턴 ${fmt(A.tries - A.good)}장 · 성공 ${A.good}회`); return;
     }
     it.sc = before; S.log.ret = (S.log.ret || 0) + 1; // 리턴 주문서로 되돌리기
     const live = $('#chaosLive'); if (live) live.innerHTML = chaosLiveHtml(A);
@@ -1048,7 +1051,7 @@ function stopChaosAuto(msg) {
 }
 function chaosLiveHtml(A) {
   return `<div class="live-head"><b>${fmt(A.tries)}</b>회째${A.done ? ' · <span class="ok">목표 달성!</span>' : ' · 리턴으로 되돌리는 중'}</div>
-    <div class="chaos-res">${A.last ? deltaHtml(A.last, A.lastR) : ''}</div>`;
+    ${A.good ? `<div class="muted small">목표 성공 ${A.good}회</div>` : ''}<div class="chaos-res">${A.last ? deltaHtml(A.last, A.lastR) : ''}</div>`;
 }
 
 // ===== 자동 추옵 =====
@@ -1263,14 +1266,15 @@ function tabBody(it, t) {
         return `<div class="actions">
           <button class="primary" data-act="scroll" ${left > 0 && !M.chaosAuto ? '' : 'disabled'}>주문서 사용</button>
           <button data-act="scrollAll" ${left > 0 && !M.chaosAuto ? '' : 'disabled'}>남은 횟수 전부 사용</button>
-          ${cur && cur.chaos ? `<label class="chk"><input type="checkbox" id="useRet" ${M.useRet ? 'checked' : ''}> 리턴 주문서 사용</label>` : ''}
+          ${cur && cur.ret ? `<label class="chk"><input type="checkbox" id="useRet" ${M.useRet ? 'checked' : ''}> 리턴 주문서 사용</label>` : ''}
         </div>
         ${M.lastScroll ? `<div class="chaos-res small-res">방금 결과: ${deltaHtml(M.lastScroll.d, M.lastScroll.r)}</div>` : ''}
-        ${cur && cur.chaos ? `<div class="auto-cube">
-          <div class="pot-title">놀긍혼 + 리턴 자동 <span class="muted small">목표가 나올 때까지 리턴으로 되돌리며 반복</span></div>
+        ${cur && cur.ret ? `<div class="auto-cube">
+          <div class="pot-title">${cur.chaos ? '놀긍혼' : '주문서'} + 리턴 자동 <span class="muted small">목표가 나올 때까지 리턴으로 되돌리며 반복</span></div>
           <div class="goal">
             <span>${ATT_NAME()} ≥ <input type="number" min="0" max="6" data-cgoal="att" value="${M.chaosGoal.att}"></span>
-            <span>${cls.main} ≥ <input type="number" min="0" max="6" data-cgoal="main" value="${M.chaosGoal.main}"></span>
+            ${cur.chaos ? `<span>${cls.main} ≥ <input type="number" min="0" max="6" data-cgoal="main" value="${M.chaosGoal.main}"></span>` : ''}
+            <label class="chk"><input type="checkbox" id="retAll" ${M.retAll !== false ? 'checked' : ''}> 남은 횟수 전부 (풀강)</label>
             <select id="chaosSpeed">${[[80, '보통'], [20, '빠름'], [0, '최대 속도']].map(([v, n]) => `<option value="${v}" ${M.chaosSpeed == v ? 'selected' : ''}>${n}</option>`).join('')}</select>
             ${M.chaosAuto ? '<button class="danger" data-act="chaosStop">■ 중지</button>' : `<button class="primary" data-act="chaosAuto" ${left > 0 ? '' : 'disabled'}>▶ 자동</button>`}
           </div>
@@ -1846,7 +1850,7 @@ document.addEventListener('click', e => {
         const d = scDelta(before, scOf(it));
         const sr = scrollList(TPL[it.id]).find(x => x.id === M.scroll);
         M.lastScroll = { d, r };
-        if (sr.chaos && M.useRet) { M.ret = { before, d, r }; M.msg = ''; refresh(); break; }
+        if (sr.ret && M.useRet) { M.ret = { before, d, r }; M.msg = ''; refresh(); break; }
       }
       setMsg(r === 'success' ? '주문서 성공!' : r === 'fail' ? '주문서 실패 (업그레이드 횟수 -1)' : '남은 횟수가 없어요.', r === 'success' ? 'ok' : 'bad');
       refresh(); break;
@@ -2027,7 +2031,7 @@ document.addEventListener('change', e => {
   if (e.target.dataset && e.target.dataset.soul && M) { M.soulSel[e.target.dataset.soul] = e.target.value; return; }
   if (e.target.dataset && e.target.dataset.sgoal && M) { M.soulGoal[e.target.dataset.sgoal] = +e.target.value; return; }
   if (e.target.dataset && e.target.dataset.alock && M) { M.locks[+e.target.dataset.alock] = e.target.checked; renderModal(); return; }
-  if (e.target.dataset && e.target.dataset.scroll && M) { M.scroll = e.target.dataset.scroll; M.lastScroll = null; M.chaosLast = null; renderModal(); return; }
+  if (e.target.dataset && e.target.dataset.scroll && M) { M.scroll = e.target.dataset.scroll; { const it0 = findItem(M.uid), sr0 = scrollList(TPL[it0.id]).find(x => x.id === M.scroll); if (sr0 && sr0.ret) M.chaosGoal = sr0.chaos ? { att: 6, main: 6 } : { att: sr0.hi, main: 0 }; } M.lastScroll = null; M.chaosLast = null; renderModal(); return; }
   if (e.target.dataset && e.target.dataset.fmode && M) { M.fgoal.mode = e.target.value; renderModal(); return; }
   if (e.target.dataset && e.target.dataset.fcond && M) {
     const c = M.fgoal.conds[+e.target.dataset.i];
@@ -2035,6 +2039,7 @@ document.addEventListener('change', e => {
     return;
   }
   if (e.target.dataset && e.target.dataset.fgoal && M) { M.fgoal[e.target.dataset.fgoal] = +e.target.value; return; }
+  if (e.target.id === 'retAll' && M) { M.retAll = e.target.checked; return; }
   if (e.target.id === 'useRet' && M) { M.useRet = e.target.checked; return; }
   if (e.target.id === 'chaosSpeed' && M) { M.chaosSpeed = +e.target.value; return; }
   if (e.target.dataset && e.target.dataset.cgoal && M) { M.chaosGoal[e.target.dataset.cgoal] = +e.target.value; return; }
