@@ -1033,13 +1033,13 @@ function startChaosAuto() {
     A.tries++; A.last = d; A.lastR = r;
     if (r === 'success' && d.att >= g.att && d.main >= g.main) {
       A.good++;
-      if (M.retAll !== false && scLeft(it) > 0) { const live = $('#chaosLive'); if (live) live.innerHTML = chaosLiveHtml(A); return; }
+      if (M.retAll !== false && scLeft(it) > 0) { const live = live$('#chaosLive'); if (live) live.innerHTML = chaosLiveHtml(A); return; }
       A.done = true; stopChaosAuto(`목표 달성! 주문서 ${fmt(A.tries)}장 · 리턴 ${fmt(A.tries - A.good)}장 · 성공 ${A.good}회`); return;
     }
     it.sc = before; S.log.ret = (S.log.ret || 0) + 1; // 리턴 주문서로 되돌리기
-    const live = $('#chaosLive'); if (live) live.innerHTML = chaosLiveHtml(A);
+    const live = live$('#chaosLive'); if (live) live.innerHTML = chaosLiveHtml(A);
   };
-  A.timer = setInterval(() => { if (M.chaosSpeed == 0) { for (let i = 0; i < 30; i++) step(); } else step(); }, M.chaosSpeed || 4);
+  A.timer = setInterval(() => runSpeed(M.chaosSpeed, step), Math.max(4, M.chaosSpeed || 4));
   renderModal();
 }
 function stopChaosAuto(msg) {
@@ -1074,10 +1074,10 @@ function startFlameAuto(type) {
     if (type !== 'flameB' || flameBetter(it, res, it.flame || [])) it.flame = res;
     if (flameGoalMet(it, res)) { it.flame = res; A.done = true; stopFlameAuto(`목표 달성! ${fmt(A.tries)}회 만에 ${flameLabel(it, res)}`); return; }
     if (A.tries >= 1000000) { stopFlameAuto('100만 회 동안 목표를 못 띄워서 멈췄어요.'); return; }
-    const live = $('#flameLive'); if (live) live.innerHTML = flameLiveHtml(A);
-    const tip = $('.tooltip'); if (tip) tip.outerHTML = tooltipHtml(it);
+    const live = live$('#flameLive'); if (live) live.innerHTML = flameLiveHtml(A);
+    const tip = live$('.tooltip'); if (tip) tip.outerHTML = tooltipHtml(it);
   };
-  A.timer = setInterval(() => { if (M.fgoal.speed == 0) { for (let i = 0; i < 40; i++) step(); } else step(); }, M.fgoal.speed || 4);
+  A.timer = setInterval(() => runSpeed(M.fgoal.speed, step), Math.max(4, M.fgoal.speed || 4));
   renderModal();
 }
 function stopFlameAuto(msg) {
@@ -1102,6 +1102,16 @@ function useHammer(it, two) {
   return 'fail';
 }
 
+// 자동 속도: -1 초고속(틱마다 1000번, 화면은 마지막 1번만 갱신) / 0 최대 속도(30번) / 그 외 1번
+let QUIET = false;
+const live$ = sel => (QUIET ? null : $(sel));
+function runSpeed(sp, step) {
+  if (sp == -1) { QUIET = true; try { for (let i = 0; i < 999; i++) step(); } finally { QUIET = false; } step(); }
+  else if (sp == 0) { for (let i = 0; i < 30; i++) step(); }
+  else step();
+}
+const SPEEDS = (slow, fast) => [[slow, '보통'], [fast, '빠름'], [0, '최대 속도'], [-1, '초고속']];
+
 // ===== 자동 스타포스 =====
 const SF_RES = { success: ['성공', 'ok'], fail: ['실패(유지)', 'keep'], boom: ['💥 파괴', 'bad'] };
 function sfLiveHtml(A) {
@@ -1122,10 +1132,10 @@ function startSfAuto() {
     A.last = doStar(it, M.o); A.tries++;
     if (A.last === 'boom') A.booms++;
     if (it.star >= target) { A.done = true; stopSfAuto(`${target}성 달성! 시도 ${fmt(A.tries)}회 · 파괴 ${fmt(A.booms)}회 · ${fmtMeso(S.log.meso - A.meso0)} 메소`); return; }
-    const live = $('#sfLive'); if (live) live.innerHTML = sfLiveHtml(A);
-    const tip = $('.tooltip'); if (tip) tip.outerHTML = tooltipHtml(it);
+    const live = live$('#sfLive'); if (live) live.innerHTML = sfLiveHtml(A);
+    const tip = live$('.tooltip'); if (tip) tip.outerHTML = tooltipHtml(it);
   };
-  A.timer = setInterval(() => { if (M.sfSpeed == 0) { for (let i = 0; i < 30; i++) step(); } else step(); }, M.sfSpeed || 4);
+  A.timer = setInterval(() => runSpeed(M.sfSpeed, step), Math.max(4, M.sfSpeed || 4));
   renderModal();
 }
 function stopSfAuto(msg) {
@@ -1188,7 +1198,7 @@ function autoCubeHtml(kind) {
       <select data-goal="grade" data-kind="${kind}">${[[-1, '등급 상관없음'], ...GRADES.map((n, i) => [i, n + ' 이상'])].map(([v, n]) => `<option value="${v}" ${g.grade == v ? 'selected' : ''}>${n}</option>`).join('')}</select>
       <select data-goal="opt" data-kind="${kind}">${GOAL_OPTS(kind).map(([v, n]) => `<option value="${v}" ${g.opt === v ? 'selected' : ''}>${n}</option>`).join('')}</select>
       ${g.opt.startsWith('p:') || g.opt === 'none' ? '' : `<span>합계 ≥ <input type="number" data-goal="min" data-kind="${kind}" value="${g.min}" min="0"></span>`}
-      <select data-goal="speed" data-kind="${kind}">${[[60, '보통'], [15, '빠름'], [0, '최대 속도']].map(([v, n]) => `<option value="${v}" ${g.speed == v ? 'selected' : ''}>${n}</option>`).join('')}</select>
+      <select data-goal="speed" data-kind="${kind}">${SPEEDS(60, 15).map(([v, n]) => `<option value="${v}" ${g.speed == v ? 'selected' : ''}>${n}</option>`).join('')}</select>
     </div>
     <div class="actions">${running
       ? '<button class="danger" data-act="autoStop">■ 중지</button>'
@@ -1215,11 +1225,11 @@ function startAuto(type) {
     if (!CUBES[type].choose || met || res.grade > it[kind].grade) it[kind] = res;
     if (met) { A.done = true; stopAuto(`목표 달성! ${fmt(A.tries)}회 만에 성공`); return; }
     if (A.tries >= 1000000) { stopAuto(`100만 회 동안 목표를 못 띄워서 멈췄어요.`); return; }
-    const live = $('#cubeLive'); if (live) live.innerHTML = liveHtml(A);
+    const live = live$('#cubeLive'); if (live) live.innerHTML = liveHtml(A);
   };
   A.timer = setInterval(() => {
-    if (g.speed == 0) { for (let i = 0; i < 50; i++) step(); } else step();
-  }, g.speed || 4);
+    runSpeed(g.speed, step);
+  }, Math.max(4, g.speed || 4));
   renderModal();
 }
 function stopAuto(msg) {
@@ -1275,7 +1285,7 @@ function tabBody(it, t) {
             <span>${ATT_NAME()} ≥ <input type="number" min="0" max="6" data-cgoal="att" value="${M.chaosGoal.att}"></span>
             ${cur.chaos ? `<span>${cls.main} ≥ <input type="number" min="0" max="6" data-cgoal="main" value="${M.chaosGoal.main}"></span>` : ''}
             <label class="chk"><input type="checkbox" id="retAll" ${M.retAll !== false ? 'checked' : ''}> 남은 횟수 전부 (풀강)</label>
-            <select id="chaosSpeed">${[[80, '보통'], [20, '빠름'], [0, '최대 속도']].map(([v, n]) => `<option value="${v}" ${M.chaosSpeed == v ? 'selected' : ''}>${n}</option>`).join('')}</select>
+            <select id="chaosSpeed">${SPEEDS(80, 20).map(([v, n]) => `<option value="${v}" ${M.chaosSpeed == v ? 'selected' : ''}>${n}</option>`).join('')}</select>
             ${M.chaosAuto ? '<button class="danger" data-act="chaosStop">■ 중지</button>' : `<button class="primary" data-act="chaosAuto" ${left > 0 ? '' : 'disabled'}>▶ 자동</button>`}
           </div>
           <div class="live ${M.chaosAuto ? 'on' : ''}" id="chaosLive">${M.chaosAuto || M.chaosLast ? chaosLiveHtml(M.chaosAuto || M.chaosLast) : '<span class="muted small">예: 공 6 · 힘 6 목표로 돌리면 뜰 때까지 계속 돌려요.</span>'}</div>
@@ -1304,7 +1314,7 @@ function tabBody(it, t) {
       <div class="actions">
         <button class="primary" data-act="sf" ${M.sfAuto ? 'disabled' : ''}>강화하기</button>
         <span class="auto">목표 <input id="target" type="number" min="${s + 1}" max="${max}" value="${Math.max(s + 1, Math.min(M.target, max))}">성
-        <select id="sfSpeed">${[[80, '보통'], [20, '빠름'], [0, '최대 속도']].map(([v, n]) => `<option value="${v}" ${M.sfSpeed == v ? 'selected' : ''}>${n}</option>`).join('')}</select>
+        <select id="sfSpeed">${SPEEDS(80, 20).map(([v, n]) => `<option value="${v}" ${M.sfSpeed == v ? 'selected' : ''}>${n}</option>`).join('')}</select>
         ${M.sfAuto ? '<button class="danger" data-act="sfStop">■ 중지</button>' : '<button data-act="sfAuto">▶ 자동 강화</button>'}</span>
       </div>
       <div class="live ${M.sfAuto ? 'on' : ''}" id="sfLive">${M.sfAuto || M.sfLast ? sfLiveHtml(M.sfAuto || M.sfLast) : '<span class="muted small">자동 강화를 켜면 여기에 결과가 계속 나와요.</span>'}</div>
@@ -1364,7 +1374,7 @@ function tabBody(it, t) {
         ? `<span>${ATT_NAME()} <input type="number" min="1" max="7" data-fgoal="wtier" value="${g.wtier}">추 이상</span>
            <span>보스 데미지 ≥ <input type="number" min="0" data-fgoal="boss" value="${g.boss}">%</span>`
         : `<span>환산 ≥ <input type="number" min="0" data-fgoal="score" value="${g.score}">급</span>`}
-        <select data-fgoal="speed">${[[60, '보통'], [15, '빠름'], [0, '최대 속도']].map(([v, n]) => `<option value="${v}" ${g.speed == v ? 'selected' : ''}>${n}</option>`).join('')}</select>
+        <select data-fgoal="speed">${SPEEDS(60, 15).map(([v, n]) => `<option value="${v}" ${g.speed == v ? 'selected' : ''}>${n}</option>`).join('')}</select>
       </div>
       <div class="actions">${A ? '<button class="danger" data-act="fStop">■ 중지</button>'
         : [['flameR', '강환'], ['flameE', '영환'], ['flameB', '검환']].map(([k, n]) => `<button class="${k === 'flameB' ? 'black' : ''}" data-act="fAuto" data-flame="${k}">▶ ${n} 자동</button>`).join('')}</div>
