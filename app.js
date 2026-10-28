@@ -319,7 +319,13 @@ function flameVal(k, tier, t) {
   if (STATS4.includes(k)) return (Math.floor(L / 20) + 1) * tier;
   if (k.includes('+')) return (Math.floor(L / 40) + 1) * tier;
   if (k === 'HP') return Math.max(1, Math.floor(L / 10)) * 30 * tier;
-  if (k === 'ATT' || k === 'MATT') return t.slot === '무기' ? Math.ceil(tAtt(t) * tier * (L >= 200 ? 0.055 : L >= 160 ? 0.044 : 0.033)) : tier;
+  // 무기 공/마 추옵 = 기본 공/마 × (레벨/40 내림 + 1) × 단계 × 1.1^(단계-3) / 100 (올림)
+  // 예: 데스티니 케인(공 358) 7단계 257, 6단계 201
+  if (k === 'ATT' || k === 'MATT') {
+    if (t.slot !== '무기') return tier;
+    const base = (k === 'ATT' ? t.pad : t.mad) || 0;
+    return Math.ceil(base * (Math.floor(L / 40) + 1) * tier * Math.pow(1.1, tier - 3) / 100 - 1e-9);
+  }
   if (k === 'BOSS%') return 2 * tier;
   if (k === 'LVR') return 5 * tier;
   if (k === 'DEF') return (Math.floor(L / 20) + 1) * tier;
