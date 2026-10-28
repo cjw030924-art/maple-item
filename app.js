@@ -60,7 +60,7 @@ function load(name) {
   delete S.pets; delete S.petEq; // 예전 펫 기능 데이터
   S.inv.forEach(i => { if (i.id === '펫장비') i.id = '1802653'; }); // 예전 펫장비 → 루나 크리스탈 키
   S.hyper = S.hyper || {};
-  S.abil = S.abil || { grade: 0, lines: [abilLine(0), abilLine(0), abilLine(0)] };
+  if (!S.abil) { const used = []; S.abil = { grade: 0, lines: [0, 1, 2].map(() => { const l = abilLine(0, used); used.push(l.k); return l; }) }; }
   S.hexa = S.hexa || PANEL_BLANK.hexa();
   S.etc = S.etc || PANEL_BLANK.etc();
   // 아티팩트·유니온(휘장/점령)은 계정 공용
@@ -1504,8 +1504,9 @@ const ABIL_POOL = [
 const ABIL_UP = [0.15, 0.045, 0.01];
 const ABIL_COST = [1000, 4000, 9000]; // 잠금 0/1/2줄
 const abilText = l => `${l.k === 'MAIN' ? cls.main : l.k === 'ATT' ? ATT_NAME() : l.n} +${l.val}${l.u}`;
-function abilLine(g) {
-  const o = pick(ABIL_POOL.filter(x => x.v[g] != null));
+// used: 이미 다른 줄에 있는 옵션 (같은 옵션은 한 줄만)
+function abilLine(g, used = []) {
+  const o = pick(ABIL_POOL.filter(x => x.v[g] != null && !used.includes(x.k)));
   return { k: o.k, n: o.n, u: o.u, val: o.v[g], g };
 }
 // 첫 줄은 현재 등급, 2·3번째 줄은 25% 확률로 같은 등급 아니면 한 단계 아래
@@ -1516,7 +1517,13 @@ function rollAbil(locks) {
   S.log.abil = (S.log.abil || 0) + 1;
   let g = A.grade;
   if (g < 3 && rnd() < ABIL_UP[g]) g++;
-  A.lines = [0, 1, 2].map(i => (locks[i] ? A.lines[i] : abilLine(i === 0 || rnd() < 0.25 ? g : Math.max(0, g - 1))));
+  const used = A.lines.filter((l, i) => locks[i]).map(l => l.k);
+  A.lines = [0, 1, 2].map(i => {
+    if (locks[i]) return A.lines[i];
+    const l = abilLine(i === 0 || rnd() < 0.25 ? g : Math.max(0, g - 1), used);
+    used.push(l.k);
+    return l;
+  });
   A.grade = g;
   return g;
 }
