@@ -305,6 +305,7 @@ button.white { background: #e8e8f0; color: #1a1a22; }
 .boss-diff.on { color: #fff; border-color: #fff; box-shadow: 0 0 8px rgba(255, 255, 255, .6); }
 .boss-diff.on.d-easy { background: #6b7280; } .boss-diff.on.d-normal { background: #1f9fc0; }
 .boss-diff.on.d-hard { background: #c9344a; } .boss-diff.on.d-chaos { background: #7d3cc8; }
+.boss-diff.on.d-extreme { background: linear-gradient(180deg, #2a0a12, #000); color: #ffd76a; border-color: #ffd76a; }
 .boss-art { position: absolute; left: 8%; right: 8%; top: 22%; bottom: 16%; width: 84%; height: 62%; object-fit: contain; filter: drop-shadow(0 6px 14px rgba(0, 0, 0, .6)); }
 .boss-stage-foot { position: relative; z-index: 1; margin-top: auto; display: flex; justify-content: space-between; align-items: flex-end; gap: 10px; }
 .boss-pred { padding: 6px 10px; background: rgba(20, 20, 26, .75); border: 1px solid rgba(255, 255, 255, .3); border-radius: 8px; font-weight: bold; }

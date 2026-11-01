@@ -1791,44 +1791,66 @@ function tonicHtml() {
 }
 // ===== 보스 도전 =====
 // 체력·권장 전투력은 글로벌 서버 기준 공개 자료, 방어율은 일부만 확인된 근사치
-const BOSS_DIFF_KEY = { 이지: 'easy', 노말: 'normal', 하드: 'hard', 카오스: 'chaos' };
-const BOSS_GROUPS = [
-  ['pinkbean', '핑크빈', [['카오스', 70e9, 180, 1.5e6, 1]]],
-  ['zakum', '자쿰', [['카오스', 84e9, 100, 1.5e6, 1]]],
-  ['magnus', '매그너스', [['하드', 120e9, 120, 2e6, 1]]],
-  ['vellum', '벨룸', [['카오스', 200e9, 200, 2.5e6, 1]]],
-  ['papulatus', '파풀라투스', [['카오스', 504e9, 250, 3e6, 2]]],
-  ['lotus', '스우', [['노말', 2e12, 300, 3.5e6, 3], ['하드', 34e12, 300, 23e6, 3]]],
-  ['damien', '데미안', [['노말', 1e12, 300, 4e6, 2], ['하드', 36e12, 300, 26e6, 2]]],
-  ['slime', '가디언 엔젤 슬라임', [['노말', 5e12, 300, 8e6, 2], ['카오스', 90e12, 300, 60e6, 2]]],
-  ['lucid', '루시드', [['이지', 12e12, 300, 9e6, 2], ['노말', 24e12, 300, 18e6, 2], ['하드', 118e12, 300, 50e6, 3]]],
-  ['will', '윌', [['이지', 17e12, 300, 10e6, 3], ['노말', 25e12, 300, 18e6, 3], ['하드', 126e12, 300, 50e6, 3]]],
-  ['gloom', '더스크', [['노말', 26e12, 300, 23e6, 1], ['카오스', 128e12, 300, 55e6, 1]]],
-  ['darknell', '듄켈', [['노말', 26e12, 300, 23e6, 1], ['하드', 158e12, 300, 60e6, 1]]],
-  ['blackmage', '검은 마법사', [['하드', 472e12, 300, 60e6, 4]]],
-  ['verus', '진 힐라', [['노말', 88e12, 300, 70e6, 4], ['하드', 176e12, 300, 70e6, 4]]],
-  ['seren', '세렌', [['노말', 208e12, 380, 80e6, 3], ['하드', 483e12, 380, 95e6, 3]]],
-  ['kalos', '칼로스', [['이지', 357e12, 330, 85e6, 3]]],
-  ['adversary', '최초의 대적자', [['이지', 571e12, 380, 90e6, 3]]],
-].map(([key, name, diffs]) => {
-  const img = key === 'adversary' ? null : `icons/boss/${key}.png`; // 최초의 대적자는 공개된 이미지가 없음
-  return { key, name, img, diffs: diffs.map(([diff, hp, def, cp, phases]) => ({ id: `${BOSS_DIFF_KEY[diff]}-${key}`, group: key, diff, name: `${diff} ${name}`, hp, def, cp, phases, img })) };
-});
-const BOSSES = BOSS_GROUPS.flatMap(g => g.diffs);
 const BOSS_LIMIT = 1800, BOSS_LIVES = 5, BOSS_RESPAWN = 30, BOSS_TRANS = 15;
 const BOSS_DPS = 5000; // 전투력 1당 초당 데미지
 const BOSS_BURST = [180, 40, 1.8]; // 극딜 주기(초), 지속(초), 배율
+const BOSS_BURST_AVG = 1 + (BOSS_BURST[2] - 1) * BOSS_BURST[1] / BOSS_BURST[0];
+const BOSS_DIFF_KEY = { 이지: 'easy', 노말: 'normal', 하드: 'hard', 카오스: 'chaos', 익스트림: 'extreme' };
+// [난이도, 체력, 방어율, 권장 전투력, 페이즈, 체력 추정 여부]. 권장 전투력이 0이면 방무 96%로 20분 안에 잡는 값으로 계산
+const BOSS_GROUPS = [
+  ['zakum', '자쿰', [['이지', 2e7, 10, 1e3, 1, 1], ['노말', 6e7, 20, 3e3, 1, 1], ['카오스', 84e9, 100, 1.5e6, 1]]],
+  ['hilla', '힐라', [['노말', 1e9, 20, 5e4, 1, 1], ['하드', 17e9, 100, 1e6, 1]]],
+  ['horntail', '혼테일', [['이지', 2e9, 30, 1e5, 1, 1], ['노말', 2e9, 40, 1e5, 1, 1], ['카오스', 5e9, 60, 2.5e5, 1, 1]]],
+  ['vonleon', '반 레온', [['이지', 1e9, 30, 5e4, 1, 1], ['노말', 5e9, 50, 2.5e5, 1, 1], ['하드', 16e9, 80, 8e5, 1, 1]]],
+  ['arkarium', '아카이럼', [['이지', 12e9, 50, 6e5, 1, 1], ['노말', 16e9, 80, 8e5, 1, 1]]],
+  ['pinkbean', '핑크빈', [['노말', 2e9, 50, 1e5, 1, 1], ['카오스', 70e9, 180, 1.5e6, 1]]],
+  ['cygnus', '시그너스', [['이지', 11e9, 100, 8e5, 1], ['노말', 63e9, 100, 1.5e6, 1]]],
+  ['ranmaru', '모리 란마루', [['노말', 2e9, 30, 1e5, 1, 1], ['하드', 12e9, 60, 6e5, 1, 1]]],
+  ['gollux', '골럭스', [['노말', 12e9, 60, 6e5, 1, 1]]],
+  ['magnus', '매그너스', [['이지', 1e9, 30, 5e4, 1, 1], ['노말', 16e9, 80, 8e5, 1, 1], ['하드', 120e9, 120, 2e6, 1]]],
+  ['pierre', '피에르', [['노말', 2e9, 50, 1e5, 1, 1], ['카오스', 80e9, 150, 1.5e6, 1]]],
+  ['vonbon', '반반', [['노말', 2e9, 50, 1e5, 1, 1], ['카오스', 100e9, 150, 1.5e6, 1]]],
+  ['crimsonqueen', '블러디퀸', [['노말', 2e9, 50, 1e5, 1, 1], ['카오스', 140e9, 150, 1.5e6, 1]]],
+  ['vellum', '벨룸', [['노말', 2e9, 50, 1e5, 1, 1], ['카오스', 200e9, 200, 2.5e6, 1]]],
+  ['papulatus', '파풀라투스', [['이지', 1e9, 30, 5e4, 1, 1], ['노말', 16e9, 80, 8e5, 1, 1], ['카오스', 504e9, 250, 3e6, 2]]],
+  ['princessno', '프린세스 노', [['노말', 500e9, 200, 1.5e6, 1]]],
+  ['akechi', '아케치 미츠히데', [['노말', 304e9, 200, 3e6, 1]]],
+  ['lotus', '스우', [['노말', 1.57e12, 300, 3.5e6, 3], ['하드', 33.5e12, 300, 23e6, 3], ['익스트림', 1.81e15, 380, 0, 3]]],
+  ['damien', '데미안', [['노말', 1.2e12, 300, 4e6, 2], ['하드', 36e12, 300, 26e6, 2]]],
+  ['slime', '가디언 엔젤 슬라임', [['노말', 5e12, 300, 8e6, 1], ['카오스', 90e12, 300, 60e6, 1]]],
+  ['lucid', '루시드', [['이지', 12e12, 300, 9e6, 2], ['노말', 24e12, 300, 18e6, 2], ['하드', 117.6e12, 300, 50e6, 3]]],
+  ['will', '윌', [['이지', 16.8e12, 300, 10e6, 3], ['노말', 25.2e12, 300, 18e6, 3], ['하드', 126e12, 300, 50e6, 3]]],
+  ['gloom', '더스크', [['노말', 25.5e12, 300, 23e6, 1], ['카오스', 127.5e12, 300, 55e6, 1]]],
+  ['verus', '진 힐라', [['노말', 88e12, 300, 70e6, 1], ['하드', 176e12, 300, 70e6, 1]]],
+  ['darknell', '듄켈', [['노말', 26e12, 300, 23e6, 1], ['하드', 157.5e12, 300, 60e6, 1]]],
+  ['blackmage', '검은 마법사', [['하드', 472.5e12, 300, 60e6, 4], ['익스트림', 4.81e15, 300, 0, 4]]],
+  ['seren', '세렌', [['노말', 208e12, 380, 80e6, 2], ['하드', 483e12, 380, 95e6, 2], ['익스트림', 6.48e15, 380, 0, 2]]],
+  ['kalos', '칼로스', [['이지', 357e12, 380, 85e6, 2], ['노말', 1.06e15, 380, 250e6, 2], ['카오스', 5.12e15, 380, 700e6, 2], ['익스트림', 21.57e15, 380, 0, 2]]],
+  ['adversary', '최초의 대적자', [['이지', 571.09e12, 380, 90e6, 3], ['노말', 1.64e15, 380, 300e6, 3], ['하드', 10.59e15, 380, 0, 3], ['익스트림', 33.56e15, 380, 0, 3]]],
+  ['kaling', '카링', [['이지', 921e12, 380, 220e6, 3], ['노말', 3.93e15, 380, 0, 3], ['하드', 11.84e15, 380, 0, 3], ['익스트림', 54.59e15, 380, 0, 3]]],
+  ['malefic', '찬란한 흉성', [['노말', 3.26e15, 380, 0, 3], ['하드', 14.7e15, 380, 0, 3]]],
+  ['limbo', '림보', [['노말', 6.48e15, 380, 0, 3], ['하드', 12.55e15, 380, 0, 3], ['익스트림', 45.4e15, 380, 0, 3]]],
+  ['baldrix', '발드릭스', [['노말', 9.06e15, 380, 0, 3], ['하드', 20.34e15, 380, 0, 3], ['익스트림', 53.9e15, 380, 0, 3]]],
+  ['bellona', '벨로나', [['이지', 779e12, 380, 0, 3, 1], ['노말', 4.122e15, 380, 0, 3, 1], ['하드', 13.176e15, 380, 0, 3, 1]]],
+  ['jupiter', '유피테르', [['노말', 10.26e15, 380, 0, 3], ['하드', 49.4e15, 380, 0, 3]]],
+].map(([key, name, diffs]) => {
+  const img = key === 'bellona' ? null : `icons/boss/${key}.png`; // 벨로나는 공개된 이미지가 없음
+  return { key, name, img, diffs: diffs.map(([diff, hp, def, cp, phases, hpEst]) => ({
+    id: `${BOSS_DIFF_KEY[diff]}-${key}`, group: key, diff, name: `${diff} ${name}`, hp, def, phases, img, hpEst: !!hpEst, cpEst: !cp,
+    cp: cp || Math.ceil(hp / (1200 * BOSS_DPS * (1 - def / 100 * 0.04) * BOSS_BURST_AVG)),
+  })) };
+});
+const BOSSES = BOSS_GROUPS.flatMap(g => g.diffs);
 const BOSS_SPEEDS = [[0.1, '1배속'], [3, '30배속'], [10, '100배속'], [60, '600배속'], [0, '바로 결과']]; // 0.1초마다 지나가는 전투 시간(초)
 const bossSpeed = () => (M.bossSpeed == null ? 3 : M.bossSpeed);
 const bossOf = id => BOSSES.find(b => b.id === id);
 const bossRec = id => S.boss[id] || { tries: 0, kills: 0, best: null };
-const bossHitRate = b => (b.cp < 1e7 ? 0.05 : b.cp < 6e7 ? 0.08 : 0.12); // 패턴에 맞을 확률
+const bossHitRate = b => (b.diff === '익스트림' ? 0.15 : b.cp < 1e7 ? 0.05 : b.cp < 6e7 ? 0.08 : 0.12); // 패턴에 맞을 확률
 const bossDefRate = (b, ied) => Math.max(0.01, 1 - b.def / 100 * (1 - ied / 100));
-const fmtBig = n => (n >= 1e12 ? `${+(n / 1e12).toFixed(1)}조` : n >= 1e8 ? `${+(n / 1e8).toFixed(1)}억` : n >= 1e4 ? `${fmt(n / 1e4)}만` : fmt(n));
+const fmtBig = n => (n >= 1e16 ? `${+(n / 1e16).toFixed(2)}경` : n >= 1e12 ? `${+(n / 1e12).toFixed(1)}조` : n >= 1e8 ? `${+(n / 1e8).toFixed(1)}억` : n >= 1e4 ? `${fmt(n / 1e4)}만` : fmt(n));
 const fmtTime = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 function bossEta(b, r) {
-  const avg = 1 + (BOSS_BURST[2] - 1) * BOSS_BURST[1] / BOSS_BURST[0];
-  const dps = r.power * BOSS_DPS * bossDefRate(b, r.ied) * avg;
+  const dps = r.power * BOSS_DPS * bossDefRate(b, r.ied) * BOSS_BURST_AVG;
   return dps > 0 ? Math.ceil(b.hp / dps) + (b.phases - 1) * BOSS_TRANS : Infinity;
 }
 function startBoss(id) {
@@ -1911,7 +1933,7 @@ function bossPanel() {
     <div class="boss-stage">
       <div class="boss-stage-top">
         <div><div class="boss-title">${g.name}</div>
-          <div class="boss-spec">체력 ${fmtBig(b.hp)}<br>방어율 ${b.def}%<br>페이즈 ${b.phases}개<br>권장 전투력 ${fmtBig(b.cp)}</div></div>
+          <div class="boss-spec">체력 ${b.hpEst ? '약 ' : ''}${fmtBig(b.hp)}<br>방어율 ${b.def}%<br>페이즈 ${b.phases}개<br>권장 전투력 ${b.cpEst ? '약 ' : ''}${fmtBig(b.cp)}</div></div>
         <div class="boss-diffs"><div class="small">DIFFICULTY</div>${g.diffs.map(d => `<button class="boss-diff d-${BOSS_DIFF_KEY[d.diff]} ${d === b ? 'on' : ''}" data-act="bossDiff" data-id="${d.id}">${d.diff}${bossRec(d.id).kills ? ' ✔' : ''}</button>`).join('')}</div>
       </div>
       ${imgHtml(b, 'boss-art')}
