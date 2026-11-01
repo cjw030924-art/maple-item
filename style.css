@@ -282,6 +282,20 @@ button.white { background: #e8e8f0; color: #1a1a22; }
 .set-ctrl label { font-size: 12px; color: var(--muted); display: flex; flex-direction: column; gap: 2px; }
 .set-ctrl select { background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; font: inherit; font-size: 12px; }
 
+/* 보스 도전 */
+.btns-top { display: flex; gap: 6px; }
+.boss-me { margin: 8px 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.boss-me b { color: var(--accent); }
+#bossSpeed { background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 5px 6px; font: inherit; font-size: 13px; }
+.boss-list { display: flex; flex-direction: column; gap: 6px; max-height: 60vh; overflow-y: auto; }
+.boss-name { margin: 12px 0 6px; color: var(--accent); }
+.boss-state { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; }
+.boss-state b { font-size: 18px; }
+.boss-hp { position: relative; height: 22px; margin: 8px 0; background: #0e1017; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.boss-hp i { display: block; height: 100%; background: linear-gradient(90deg, #a8323a, #e05a47); }
+.boss-hp span { position: absolute; inset: 0; font-size: 12px; text-align: center; line-height: 20px; color: #fff; text-shadow: 0 0 3px #000; }
+.boss-log { font-weight: normal; font-size: 12px; color: var(--muted); min-height: 90px; }
+
 /* 코인샵 보약 (훈련 일지) */
 .tonic { margin-top: 12px; border-radius: 12px; padding: 12px; background: linear-gradient(160deg, #4a2a8a, #2d1a5e 60%, #251650); border: 2px solid #8f6ae0; box-shadow: inset 0 0 20px rgba(160,120,255,.25); color: #fff; }
 .tonic-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }

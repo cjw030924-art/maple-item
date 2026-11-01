@@ -60,6 +60,7 @@ function load(name) {
   delete S.pets; delete S.petEq; // 예전 펫 기능 데이터
   S.inv.forEach(i => { if (i.id === '펫장비') i.id = '1802653'; }); // 예전 펫장비 → 루나 크리스탈 키
   S.hyper = S.hyper || {};
+  S.boss = S.boss || {};
   if (!S.abil) { const used = []; S.abil = { grade: 0, lines: [0, 1, 2].map(() => { const l = abilLine(0, used); used.push(l.k); return l; }) }; }
   S.hexa = S.hexa || PANEL_BLANK.hexa();
   S.etc = S.etc || PANEL_BLANK.etc();
@@ -649,7 +650,7 @@ function renderMain() {
       <div class="exp"><div id="expbar" style="width:${expPct()}%"></div><span id="exptxt">EXP ${expPct().toFixed(2)}%</span></div>
     </div>
     <div class="power"><span>전투력</span><b id="power">${fmtPower(totals().power)}</b></div>
-    <button data-act="change">캐릭터 변경</button>
+    <div class="btns-top"><button class="primary" data-act="panel" data-panel="boss">보스 도전</button><button data-act="change">캐릭터 변경</button></div>
   </header>
   <section class="summary" id="summary">${summaryHtml()}</section>
   <div class="layout">
@@ -1788,6 +1789,121 @@ function tonicHtml() {
     <p class="muted small">필요 칩: Lv.1 ${TONIC_COST.join(' → ')}개 (Lv.5까지 30개) · 칩은 최대 ${TONIC_CAP}개까지 얻을 수 있어요 · 구매하기 1회 = ${TONIC_BUY}개. 전투력에는 공격력/마력 · 보스 데미지 · 방어율 무시 · 올스탯이 반영돼요. 수치는 근사치예요.</p>
   </div>`;
 }
+// ===== 보스 도전 =====
+// 체력·권장 전투력은 글로벌 서버 기준 공개 자료, 방어율은 일부만 확인된 근사치
+const BOSSES = [
+  ['chaos-pinkbean', '카오스 핑크빈', 70e9, 180, 1.5e6, 1], ['chaos-zakum', '카오스 자쿰', 84e9, 100, 1.5e6, 1],
+  ['hard-magnus', '하드 매그너스', 120e9, 120, 2e6, 1], ['chaos-vellum', '카오스 벨룸', 200e9, 200, 2.5e6, 1],
+  ['chaos-papulatus', '카오스 파풀라투스', 504e9, 250, 3e6, 2], ['normal-lotus', '노말 스우', 2e12, 300, 3.5e6, 3],
+  ['normal-damien', '노말 데미안', 1e12, 300, 4e6, 2], ['normal-slime', '노말 가디언 엔젤 슬라임', 5e12, 300, 8e6, 2],
+  ['easy-lucid', '이지 루시드', 12e12, 300, 9e6, 2], ['easy-will', '이지 윌', 17e12, 300, 10e6, 3],
+  ['normal-lucid', '노말 루시드', 24e12, 300, 18e6, 2], ['normal-will', '노말 윌', 25e12, 300, 18e6, 3],
+  ['normal-gloom', '노말 더스크', 26e12, 300, 23e6, 1], ['normal-darknell', '노말 듄켈', 26e12, 300, 23e6, 1],
+  ['hard-lotus', '하드 스우', 34e12, 300, 23e6, 3], ['hard-damien', '하드 데미안', 36e12, 300, 26e6, 2],
+  ['hard-lucid', '하드 루시드', 118e12, 300, 50e6, 3], ['hard-will', '하드 윌', 126e12, 300, 50e6, 3],
+  ['chaos-gloom', '카오스 더스크', 128e12, 300, 55e6, 1], ['chaos-slime', '카오스 가디언 엔젤 슬라임', 90e12, 300, 60e6, 2],
+  ['hard-darknell', '하드 듄켈', 158e12, 300, 60e6, 1], ['hard-blackmage', '하드 검은 마법사', 472e12, 300, 60e6, 4],
+  ['normal-verus', '노말 진 힐라', 88e12, 300, 70e6, 4], ['hard-verus', '하드 진 힐라', 176e12, 300, 70e6, 4],
+  ['normal-seren', '노말 세렌', 208e12, 380, 80e6, 3], ['easy-kalos', '이지 칼로스', 357e12, 330, 85e6, 3],
+  ['easy-adversary', '이지 최초의 대적자', 571e12, 380, 90e6, 3], ['hard-seren', '하드 세렌', 483e12, 380, 95e6, 3],
+].map(([id, name, hp, def, cp, phases]) => ({ id, name, hp, def, cp, phases }));
+const BOSS_LIMIT = 1800, BOSS_LIVES = 5, BOSS_RESPAWN = 30, BOSS_TRANS = 15;
+const BOSS_DPS = 5000; // 전투력 1당 초당 데미지
+const BOSS_BURST = [180, 40, 1.8]; // 극딜 주기(초), 지속(초), 배율
+const BOSS_SPEEDS = [[3, '보통 (30배속)'], [10, '빠름 (100배속)'], [60, '매우 빠름 (600배속)'], [0, '바로 결과']];
+const bossOf = id => BOSSES.find(b => b.id === id);
+const bossRec = id => S.boss[id] || { tries: 0, kills: 0, best: null };
+const bossHitRate = b => (b.cp < 1e7 ? 0.05 : b.cp < 6e7 ? 0.08 : 0.12); // 패턴에 맞을 확률
+const bossDefRate = (b, ied) => Math.max(0.01, 1 - b.def / 100 * (1 - ied / 100));
+const fmtBig = n => (n >= 1e12 ? `${+(n / 1e12).toFixed(1)}조` : n >= 1e8 ? `${+(n / 1e8).toFixed(1)}억` : n >= 1e4 ? `${fmt(n / 1e4)}만` : fmt(n));
+const fmtTime = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+function bossEta(b, r) {
+  const avg = 1 + (BOSS_BURST[2] - 1) * BOSS_BURST[1] / BOSS_BURST[0];
+  const dps = r.power * BOSS_DPS * bossDefRate(b, r.ied) * avg;
+  return dps > 0 ? Math.ceil(b.hp / dps) + (b.phases - 1) * BOSS_TRANS : Infinity;
+}
+function startBoss(id) {
+  const b = bossOf(id), r = totals();
+  if (!r.power) { setMsg('전투력이 0이에요. 장비를 먼저 착용해 주세요.', 'bad'); renderModal(); return; }
+  if (M.fight) clearInterval(M.fight.timer);
+  const A = M.fight = { id, t: 0, hp: b.hp, dps: r.power * BOSS_DPS * bossDefRate(b, r.ied), phase: 1, dead: 0, trans: 0, deaths: 0, next: 50, burst: false, log: [`${b.name} 전투 시작!`], done: null };
+  M.msg = '';
+  A.timer = setInterval(() => {
+    if (!M || M.fight !== A) { clearInterval(A.timer); return; }
+    const sp = M.bossSpeed == null ? BOSS_SPEEDS[0][0] : M.bossSpeed;
+    for (let i = 0; !A.done && (sp === 0 || i < sp); i++) bossStep(A, b);
+    if (A.done) endBoss(A, b); else { const live = $('#bossLive'); if (live) live.innerHTML = bossLiveHtml(A, b); }
+  }, 100);
+  renderModal();
+}
+function bossStep(A, b) {
+  A.t++;
+  const say = m => { A.log.push(`[${fmtTime(A.t)}] ${m}`); if (A.log.length > 5) A.log.shift(); };
+  if (A.dead > 0) { if (!--A.dead) say('부활!'); }
+  else if (A.trans > 0) { if (!--A.trans) say(`${A.phase}페이즈 시작`); }
+  else {
+    const burst = A.t % BOSS_BURST[0] < BOSS_BURST[1];
+    if (burst && !A.burst) say('극딜 시작!');
+    A.burst = burst;
+    A.hp -= A.dps * (0.9 + rnd() * 0.2) * (burst ? BOSS_BURST[2] : 1);
+    const line = b.hp * (1 - A.phase / b.phases);
+    if (A.hp <= 0) A.hp = 0;
+    else if (A.hp <= line) { A.hp = line; A.phase++; A.trans = BOSS_TRANS; say('페이즈 전환 (무적)'); }
+    else if (--A.next <= 0) {
+      A.next = 40 + Math.floor(rnd() * 30);
+      if (rnd() < bossHitRate(b)) {
+        A.deaths++; A.dead = BOSS_RESPAWN; say(`💀 패턴 피격! 데스카운트 ${BOSS_LIVES - A.deaths}`);
+      }
+    }
+  }
+  if (A.hp <= 0) A.done = 'win';
+  else if (A.deaths >= BOSS_LIVES) A.done = 'dead';
+  else if (A.t >= BOSS_LIMIT) A.done = 'time';
+}
+function endBoss(A, b) {
+  clearInterval(A.timer);
+  const rec = S.boss[b.id] = bossRec(b.id), win = A.done === 'win', isBest = win && (rec.best == null || A.t < rec.best);
+  rec.tries++;
+  if (win) rec.kills++;
+  if (isBest) rec.best = A.t;
+  setMsg(win ? `✨ ${b.name} 처치! ${fmtTime(A.t)}${isBest ? ' · 최고 기록!' : ''}`
+    : `${A.done === 'dead' ? '💀 데스카운트를 모두 잃었어요.' : '⏰ 제한 시간 30분을 넘겼어요.'} 남은 체력 ${(A.hp / b.hp * 100).toFixed(1)}%`, win ? 'ok' : 'bad');
+  refresh();
+}
+function bossLiveHtml(A, b) {
+  const pct = A.hp / b.hp * 100;
+  return `<div class="boss-state"><b>${fmtTime(A.t)}</b> <span class="muted">/ ${fmtTime(BOSS_LIMIT)}</span>
+      <span>${A.phase} / ${b.phases}페이즈</span><span>데스카운트 ${'♥'.repeat(BOSS_LIVES - A.deaths)}</span>
+      ${A.dead ? `<span class="bad">부활 대기 ${A.dead}초</span>` : A.trans ? `<span class="keep">무적 ${A.trans}초</span>` : A.burst ? '<span class="ok">극딜 중</span>' : ''}</div>
+    <div class="boss-hp"><i style="width:${pct}%"></i><span>${fmtBig(A.hp)} / ${fmtBig(b.hp)} (${pct.toFixed(1)}%)</span></div>
+    <div class="boss-log">${A.log.map(l => `<div>${l}</div>`).join('')}</div>`;
+}
+function bossPanel() {
+  const r = totals(), sp = M.bossSpeed == null ? BOSS_SPEEDS[0][0] : M.bossSpeed;
+  const speedSel = `<select id="bossSpeed">${BOSS_SPEEDS.map(([v, n]) => `<option value="${v}" ${sp === v ? 'selected' : ''}>${n}</option>`).join('')}</select>`;
+  const head = `<h3>보스 도전</h3><div class="boss-me">전투력 <b>${fmtPower(r.power)}</b> · 방어율 무시 <b>${r.ied.toFixed(1)}%</b> · ${speedSel}</div>`;
+  const A = M.fight;
+  if (A) {
+    const b = bossOf(A.id);
+    return `${head}<h3 class="boss-name">${b.name}</h3>
+      <div class="live on" id="bossLive">${bossLiveHtml(A, b)}</div>
+      <div class="actions">${A.done
+        ? `<button class="primary" data-act="bossFight" data-id="${b.id}">다시 도전</button><button data-act="bossBack">보스 목록</button>`
+        : '<button data-act="bossBack">포기</button>'}</div>`;
+  }
+  return `${head}<div class="boss-list">${BOSSES.map(b => {
+    const rec = bossRec(b.id), eta = bossEta(b, r), ok = eta <= BOSS_LIMIT, weak = bossDefRate(b, r.ied) < 0.3;
+    return `<div class="row-item">
+      <div><b>${b.name}</b>${rec.kills ? ' <span class="tag">처치</span>' : ''}
+        <div class="muted small">HP ${fmtBig(b.hp)} · 방어율 ${b.def}% · 권장 전투력 ${fmtBig(b.cp)}</div>
+        <div class="small"><span class="${ok ? 'ok' : 'bad'}">${!r.power ? '전투력 없음' : ok ? `예상 ${fmtTime(eta)}` : '시간 초과 예상'}</span>${weak ? ' <span class="bad">방무 부족</span>' : ''}${rec.best != null ? ` · 최고 ${fmtTime(rec.best)}` : ''}${rec.tries ? ` · ${rec.kills}/${rec.tries}회 처치` : ''}</div>
+      </div>
+      <div class="btns"><button class="primary sm" data-act="bossFight" data-id="${b.id}">도전</button></div>
+    </div>`;
+  }).join('')}</div>
+  <p class="muted small">제한 시간 30분 · 데스카운트 ${BOSS_LIVES}개. 방어율 무시가 낮으면 데미지가 크게 줄어요. 기록은 캐릭터별로 저장돼요.</p>`;
+}
+
 function renderPanel() {
   const el = $('#modal');
   el.classList.remove('hidden');
@@ -1803,6 +1919,7 @@ function renderPanel() {
   } else if (M.panel === 'art') body = artPanel();
   else if (M.panel === 'hexa') body = hexaPanel();
   else if (M.panel === 'etc') body = etcPanel();
+  else if (M.panel === 'boss') body = bossPanel();
   else {
     const used = hyperUsed(), total = hyperTotal();
     body = `<h3>하이퍼 스탯 <span class="muted small">포인트 ${used} / ${total} (남은 ${total - used})</span></h3>
@@ -1820,14 +1937,14 @@ function renderPanel() {
   el.innerHTML = `<div class="sheet">
     <button class="x" data-act="close">✕</button>
     ${body}
-    <div class="pw">전투력 기여 <b>${diffHtml(panelContrib(M.panel))}</b></div>
+    ${M.panel === 'boss' ? '' : `<div class="pw">전투력 기여 <b>${diffHtml(panelContrib(M.panel))}</b></div>`}
     ${M.msg ? `<div class="msg ${M.msgCls}">${M.msg}</div>` : ''}
     <p class="muted small">수치는 근사치예요.</p>
   </div>`;
 }
 
 // ===== 이벤트 =====
-function closeModal() { if (M && M.fauto) clearInterval(M.fauto.timer); if (M && M.chaosAuto) clearInterval(M.chaosAuto.timer); if (M && M.auto) clearInterval(M.auto.timer); if (M && M.sfAuto) clearInterval(M.sfAuto.timer); M = null; renderModal(); refresh(); }
+function closeModal() { if (M && M.fight) clearInterval(M.fight.timer); if (M && M.fauto) clearInterval(M.fauto.timer); if (M && M.chaosAuto) clearInterval(M.chaosAuto.timer); if (M && M.auto) clearInterval(M.auto.timer); if (M && M.sfAuto) clearInterval(M.sfAuto.timer); M = null; renderModal(); refresh(); }
 function refresh() { save(); renderModal(); renderMain(); }
 function setMsg(msg, c = '') { M.msg = msg; M.msgCls = c; }
 
@@ -1940,6 +2057,8 @@ document.addEventListener('click', e => {
       refresh(); break;
     }
     case 'panel': M = { panel: b.dataset.panel, locks: [false, false, false], msg: '', msgCls: '' }; renderModal(); break;
+    case 'bossFight': startBoss(b.dataset.id); break;
+    case 'bossBack': if (M.fight) clearInterval(M.fight.timer); M.fight = null; M.msg = ''; renderModal(); break;
     case 'abilRoll': {
       const prev = S.abil.grade, g = rollAbil(M.locks);
       if (g == null) return;
@@ -2062,6 +2181,7 @@ document.addEventListener('change', e => {
     return;
   }
   if (e.target.dataset && e.target.dataset.fgoal && M) { M.fgoal[e.target.dataset.fgoal] = +e.target.value; return; }
+  if (e.target.id === 'bossSpeed' && M) { M.bossSpeed = +e.target.value; return; }
   if (e.target.id === 'retAll' && M) { M.retAll = e.target.checked; return; }
   if (e.target.id === 'useRet' && M) { M.useRet = e.target.checked; return; }
   if (e.target.id === 'chaosSpeed' && M) { M.chaosSpeed = +e.target.value; return; }
