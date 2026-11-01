@@ -317,8 +317,6 @@ button.white { background: #e8e8f0; color: #1a1a22; }
   .boss-tab { width: 120px; }
   .boss-title { font-size: 24px; }
 }
-.boss-noimg { display: flex; align-items: center; justify-content: center; font-size: 96px; font-weight: bold; color: rgba(255, 255, 255, .55); }
-.boss-thumb.boss-noimg { font-size: 26px; color: #777; }
 .boss-fight-top { display: flex; flex-direction: column; align-items: center; gap: 4px; margin: 6px 0; }
 .boss-fight-img { width: 100%; height: 200px; object-fit: contain; }
 .boss-name { margin: 0; color: var(--accent); }

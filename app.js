@@ -1834,7 +1834,7 @@ const BOSS_GROUPS = [
   ['bellona', '벨로나', [['이지', 779e12, 380, 0, 3, 1], ['노말', 4.122e15, 380, 0, 3, 1], ['하드', 13.176e15, 380, 0, 3, 1]]],
   ['jupiter', '유피테르', [['노말', 10.26e15, 380, 0, 3], ['하드', 49.4e15, 380, 0, 3]]],
 ].map(([key, name, diffs]) => {
-  const img = key === 'bellona' ? null : `icons/boss/${key}.png`; // 벨로나는 공개된 이미지가 없음
+  const img = `icons/boss/${key}.png`;
   return { key, name, img, diffs: diffs.map(([diff, hp, def, cp, phases, hpEst]) => ({
     id: `${BOSS_DIFF_KEY[diff]}-${key}`, group: key, diff, name: `${diff} ${name}`, hp, def, phases, img, hpEst: !!hpEst, cpEst: !cp,
     cp: cp || Math.ceil(hp / (1200 * BOSS_DPS * (1 - def / 100 * 0.04) * BOSS_BURST_AVG)),
@@ -1914,7 +1914,7 @@ function bossPanel() {
   const r = totals(), sp = bossSpeed();
   const speedSel = `<select id="bossSpeed">${BOSS_SPEEDS.map(([v, n]) => `<option value="${v}" ${sp === v ? 'selected' : ''}>${n}</option>`).join('')}</select>`;
   const head = `<h3>보스 <span class="muted small">BOSS CONTENTS</span></h3><div class="boss-me">전투력 <b>${fmtPower(r.power)}</b> · 방어율 무시 <b>${r.ied.toFixed(1)}%</b> · ${speedSel}</div>`;
-  const imgHtml = (b, c) => (b.img ? `<img class="${c}" src="${b.img}" alt="" onerror="this.style.visibility='hidden'">` : `<div class="${c} boss-noimg">?</div>`);
+  const imgHtml = (b, c) => `<img class="${c}" src="${b.img}" alt="" onerror="this.style.visibility='hidden'">`;
   const A = M.fight;
   if (A) {
     const b = bossOf(A.id);
