@@ -287,8 +287,40 @@ button.white { background: #e8e8f0; color: #1a1a22; }
 .boss-me { margin: 8px 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .boss-me b { color: var(--accent); }
 #bossSpeed { background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 5px 6px; font: inherit; font-size: 13px; }
-.boss-list { display: flex; flex-direction: column; gap: 6px; max-height: 60vh; overflow-y: auto; }
-.boss-name { margin: 12px 0 6px; color: var(--accent); }
+.sheet.boss-sheet { max-width: 780px; }
+.boss-ui { display: grid; grid-template-columns: 190px 1fr; gap: 10px; background: #2a2e38; border: 2px solid #565c6b; border-radius: 10px; padding: 8px; }
+.boss-side { display: flex; flex-direction: column; gap: 4px; height: 520px; overflow-y: auto; }
+.boss-tab { position: relative; flex-shrink: 0; height: 46px; padding: 0 8px; display: flex; align-items: center; gap: 4px; overflow: hidden; text-align: left; font-size: 13px; font-weight: bold; background: linear-gradient(180deg, #e9e9e9, #bdbdbd); color: #33363f; border: 1px solid #777; border-radius: 4px; }
+.boss-tab span { position: relative; z-index: 1; text-shadow: 0 0 3px #fff, 0 0 3px #fff; }
+.boss-tab em { position: relative; z-index: 1; font-style: normal; color: #2f8f2f; }
+.boss-tab.on { background: linear-gradient(180deg, #58d6ee, #1f9fc0); color: #fff; border-color: #bff1ff; }
+.boss-tab.on span { text-shadow: 0 1px 2px #05495c; }
+.boss-thumb { position: absolute; right: 0; top: 0; width: 72px; height: 100%; object-fit: cover; object-position: center 20%; -webkit-mask-image: linear-gradient(90deg, transparent, #000 45%); mask-image: linear-gradient(90deg, transparent, #000 45%); }
+.boss-stage { position: relative; display: flex; flex-direction: column; height: 520px; min-width: 0; padding: 14px; overflow: hidden; border-radius: 8px; color: #fff; background: radial-gradient(circle at 55% 55%, #e88a1f 0%, #a2500f 42%, #3d1c07 100%); }
+.boss-stage-top { position: relative; z-index: 1; display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.boss-title { font-size: 32px; font-weight: bold; text-shadow: 0 2px 6px #000; }
+.boss-spec { margin-top: 6px; font-size: 13px; line-height: 1.6; text-shadow: 0 1px 3px #000; }
+.boss-diffs { display: flex; flex-direction: column; gap: 4px; min-width: 110px; padding: 8px; text-align: center; background: rgba(40, 40, 50, .75); border: 1px solid rgba(255, 255, 255, .35); border-radius: 10px; }
+.boss-diff { padding: 4px 10px; border-radius: 99px; background: #4a4d58; color: #bbb; font-size: 13px; font-weight: bold; }
+.boss-diff.on { color: #fff; border-color: #fff; box-shadow: 0 0 8px rgba(255, 255, 255, .6); }
+.boss-diff.on.d-easy { background: #6b7280; } .boss-diff.on.d-normal { background: #1f9fc0; }
+.boss-diff.on.d-hard { background: #c9344a; } .boss-diff.on.d-chaos { background: #7d3cc8; }
+.boss-art { position: absolute; left: 8%; right: 8%; top: 22%; bottom: 16%; width: 84%; height: 62%; object-fit: contain; filter: drop-shadow(0 6px 14px rgba(0, 0, 0, .6)); }
+.boss-stage-foot { position: relative; z-index: 1; margin-top: auto; display: flex; justify-content: space-between; align-items: flex-end; gap: 10px; }
+.boss-pred { padding: 6px 10px; background: rgba(20, 20, 26, .75); border: 1px solid rgba(255, 255, 255, .3); border-radius: 8px; font-weight: bold; }
+.boss-pred .small { font-weight: normal; color: #ddd; }
+.boss-go { padding: 12px 22px; font-size: 18px; font-weight: bold; color: #fff; background: linear-gradient(180deg, #a5dc3a, #5c9d16); border: 2px solid #d8f58c; border-radius: 10px; text-shadow: 0 1px 2px #2b4d05; white-space: nowrap; }
+@media (max-width: 640px) {
+  .boss-ui { grid-template-columns: 1fr; }
+  .boss-side { flex-direction: row; height: auto; overflow-x: auto; overflow-y: hidden; padding-bottom: 4px; }
+  .boss-tab { width: 120px; }
+  .boss-title { font-size: 24px; }
+}
+.boss-noimg { display: flex; align-items: center; justify-content: center; font-size: 96px; font-weight: bold; color: rgba(255, 255, 255, .55); }
+.boss-thumb.boss-noimg { font-size: 26px; color: #777; }
+.boss-fight-top { display: flex; flex-direction: column; align-items: center; gap: 4px; margin: 6px 0; }
+.boss-fight-img { width: 100%; height: 200px; object-fit: contain; }
+.boss-name { margin: 0; color: var(--accent); }
 .boss-state { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; }
 .boss-state b { font-size: 18px; }
 .boss-hp { position: relative; height: 22px; margin: 8px 0; background: #0e1017; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }

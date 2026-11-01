@@ -1791,26 +1791,35 @@ function tonicHtml() {
 }
 // ===== 보스 도전 =====
 // 체력·권장 전투력은 글로벌 서버 기준 공개 자료, 방어율은 일부만 확인된 근사치
-const BOSSES = [
-  ['chaos-pinkbean', '카오스 핑크빈', 70e9, 180, 1.5e6, 1], ['chaos-zakum', '카오스 자쿰', 84e9, 100, 1.5e6, 1],
-  ['hard-magnus', '하드 매그너스', 120e9, 120, 2e6, 1], ['chaos-vellum', '카오스 벨룸', 200e9, 200, 2.5e6, 1],
-  ['chaos-papulatus', '카오스 파풀라투스', 504e9, 250, 3e6, 2], ['normal-lotus', '노말 스우', 2e12, 300, 3.5e6, 3],
-  ['normal-damien', '노말 데미안', 1e12, 300, 4e6, 2], ['normal-slime', '노말 가디언 엔젤 슬라임', 5e12, 300, 8e6, 2],
-  ['easy-lucid', '이지 루시드', 12e12, 300, 9e6, 2], ['easy-will', '이지 윌', 17e12, 300, 10e6, 3],
-  ['normal-lucid', '노말 루시드', 24e12, 300, 18e6, 2], ['normal-will', '노말 윌', 25e12, 300, 18e6, 3],
-  ['normal-gloom', '노말 더스크', 26e12, 300, 23e6, 1], ['normal-darknell', '노말 듄켈', 26e12, 300, 23e6, 1],
-  ['hard-lotus', '하드 스우', 34e12, 300, 23e6, 3], ['hard-damien', '하드 데미안', 36e12, 300, 26e6, 2],
-  ['hard-lucid', '하드 루시드', 118e12, 300, 50e6, 3], ['hard-will', '하드 윌', 126e12, 300, 50e6, 3],
-  ['chaos-gloom', '카오스 더스크', 128e12, 300, 55e6, 1], ['chaos-slime', '카오스 가디언 엔젤 슬라임', 90e12, 300, 60e6, 2],
-  ['hard-darknell', '하드 듄켈', 158e12, 300, 60e6, 1], ['hard-blackmage', '하드 검은 마법사', 472e12, 300, 60e6, 4],
-  ['normal-verus', '노말 진 힐라', 88e12, 300, 70e6, 4], ['hard-verus', '하드 진 힐라', 176e12, 300, 70e6, 4],
-  ['normal-seren', '노말 세렌', 208e12, 380, 80e6, 3], ['easy-kalos', '이지 칼로스', 357e12, 330, 85e6, 3],
-  ['easy-adversary', '이지 최초의 대적자', 571e12, 380, 90e6, 3], ['hard-seren', '하드 세렌', 483e12, 380, 95e6, 3],
-].map(([id, name, hp, def, cp, phases]) => ({ id, name, hp, def, cp, phases }));
+const BOSS_DIFF_KEY = { 이지: 'easy', 노말: 'normal', 하드: 'hard', 카오스: 'chaos' };
+const BOSS_GROUPS = [
+  ['pinkbean', '핑크빈', [['카오스', 70e9, 180, 1.5e6, 1]]],
+  ['zakum', '자쿰', [['카오스', 84e9, 100, 1.5e6, 1]]],
+  ['magnus', '매그너스', [['하드', 120e9, 120, 2e6, 1]]],
+  ['vellum', '벨룸', [['카오스', 200e9, 200, 2.5e6, 1]]],
+  ['papulatus', '파풀라투스', [['카오스', 504e9, 250, 3e6, 2]]],
+  ['lotus', '스우', [['노말', 2e12, 300, 3.5e6, 3], ['하드', 34e12, 300, 23e6, 3]]],
+  ['damien', '데미안', [['노말', 1e12, 300, 4e6, 2], ['하드', 36e12, 300, 26e6, 2]]],
+  ['slime', '가디언 엔젤 슬라임', [['노말', 5e12, 300, 8e6, 2], ['카오스', 90e12, 300, 60e6, 2]]],
+  ['lucid', '루시드', [['이지', 12e12, 300, 9e6, 2], ['노말', 24e12, 300, 18e6, 2], ['하드', 118e12, 300, 50e6, 3]]],
+  ['will', '윌', [['이지', 17e12, 300, 10e6, 3], ['노말', 25e12, 300, 18e6, 3], ['하드', 126e12, 300, 50e6, 3]]],
+  ['gloom', '더스크', [['노말', 26e12, 300, 23e6, 1], ['카오스', 128e12, 300, 55e6, 1]]],
+  ['darknell', '듄켈', [['노말', 26e12, 300, 23e6, 1], ['하드', 158e12, 300, 60e6, 1]]],
+  ['blackmage', '검은 마법사', [['하드', 472e12, 300, 60e6, 4]]],
+  ['verus', '진 힐라', [['노말', 88e12, 300, 70e6, 4], ['하드', 176e12, 300, 70e6, 4]]],
+  ['seren', '세렌', [['노말', 208e12, 380, 80e6, 3], ['하드', 483e12, 380, 95e6, 3]]],
+  ['kalos', '칼로스', [['이지', 357e12, 330, 85e6, 3]]],
+  ['adversary', '최초의 대적자', [['이지', 571e12, 380, 90e6, 3]]],
+].map(([key, name, diffs]) => {
+  const img = key === 'adversary' ? null : `icons/boss/${key}.png`; // 최초의 대적자는 공개된 이미지가 없음
+  return { key, name, img, diffs: diffs.map(([diff, hp, def, cp, phases]) => ({ id: `${BOSS_DIFF_KEY[diff]}-${key}`, group: key, diff, name: `${diff} ${name}`, hp, def, cp, phases, img })) };
+});
+const BOSSES = BOSS_GROUPS.flatMap(g => g.diffs);
 const BOSS_LIMIT = 1800, BOSS_LIVES = 5, BOSS_RESPAWN = 30, BOSS_TRANS = 15;
 const BOSS_DPS = 5000; // 전투력 1당 초당 데미지
 const BOSS_BURST = [180, 40, 1.8]; // 극딜 주기(초), 지속(초), 배율
-const BOSS_SPEEDS = [[3, '보통 (30배속)'], [10, '빠름 (100배속)'], [60, '매우 빠름 (600배속)'], [0, '바로 결과']];
+const BOSS_SPEEDS = [[0.1, '1배속'], [3, '30배속'], [10, '100배속'], [60, '600배속'], [0, '바로 결과']]; // 0.1초마다 지나가는 전투 시간(초)
+const bossSpeed = () => (M.bossSpeed == null ? 3 : M.bossSpeed);
 const bossOf = id => BOSSES.find(b => b.id === id);
 const bossRec = id => S.boss[id] || { tries: 0, kills: 0, best: null };
 const bossHitRate = b => (b.cp < 1e7 ? 0.05 : b.cp < 6e7 ? 0.08 : 0.12); // 패턴에 맞을 확률
@@ -1826,12 +1835,13 @@ function startBoss(id) {
   const b = bossOf(id), r = totals();
   if (!r.power) { setMsg('전투력이 0이에요. 장비를 먼저 착용해 주세요.', 'bad'); renderModal(); return; }
   if (M.fight) clearInterval(M.fight.timer);
-  const A = M.fight = { id, t: 0, hp: b.hp, dps: r.power * BOSS_DPS * bossDefRate(b, r.ied), phase: 1, dead: 0, trans: 0, deaths: 0, next: 50, burst: false, log: [`${b.name} 전투 시작!`], done: null };
+  const A = M.fight = { id, t: 0, acc: 0, hp: b.hp, dps: r.power * BOSS_DPS * bossDefRate(b, r.ied), phase: 1, dead: 0, trans: 0, deaths: 0, next: 50, burst: false, log: [`${b.name} 전투 시작!`], done: null };
   M.msg = '';
   A.timer = setInterval(() => {
     if (!M || M.fight !== A) { clearInterval(A.timer); return; }
-    const sp = M.bossSpeed == null ? BOSS_SPEEDS[0][0] : M.bossSpeed;
-    for (let i = 0; !A.done && (sp === 0 || i < sp); i++) bossStep(A, b);
+    const sp = bossSpeed();
+    A.acc += sp;
+    while (!A.done && (sp === 0 || A.acc >= 1 - 1e-9)) { bossStep(A, b); A.acc--; }
     if (A.done) endBoss(A, b); else { const live = $('#bossLive'); if (live) live.innerHTML = bossLiveHtml(A, b); }
   }, 100);
   renderModal();
@@ -1879,28 +1889,39 @@ function bossLiveHtml(A, b) {
     <div class="boss-log">${A.log.map(l => `<div>${l}</div>`).join('')}</div>`;
 }
 function bossPanel() {
-  const r = totals(), sp = M.bossSpeed == null ? BOSS_SPEEDS[0][0] : M.bossSpeed;
+  const r = totals(), sp = bossSpeed();
   const speedSel = `<select id="bossSpeed">${BOSS_SPEEDS.map(([v, n]) => `<option value="${v}" ${sp === v ? 'selected' : ''}>${n}</option>`).join('')}</select>`;
-  const head = `<h3>보스 도전</h3><div class="boss-me">전투력 <b>${fmtPower(r.power)}</b> · 방어율 무시 <b>${r.ied.toFixed(1)}%</b> · ${speedSel}</div>`;
+  const head = `<h3>보스 <span class="muted small">BOSS CONTENTS</span></h3><div class="boss-me">전투력 <b>${fmtPower(r.power)}</b> · 방어율 무시 <b>${r.ied.toFixed(1)}%</b> · ${speedSel}</div>`;
+  const imgHtml = (b, c) => (b.img ? `<img class="${c}" src="${b.img}" alt="" onerror="this.style.visibility='hidden'">` : `<div class="${c} boss-noimg">?</div>`);
   const A = M.fight;
   if (A) {
     const b = bossOf(A.id);
-    return `${head}<h3 class="boss-name">${b.name}</h3>
+    return `${head}<div class="boss-fight-top">${imgHtml(b, 'boss-fight-img')}<h3 class="boss-name">${b.name}</h3></div>
       <div class="live on" id="bossLive">${bossLiveHtml(A, b)}</div>
       <div class="actions">${A.done
-        ? `<button class="primary" data-act="bossFight" data-id="${b.id}">다시 도전</button><button data-act="bossBack">보스 목록</button>`
+        ? `<button class="primary" data-act="bossFight" data-id="${b.id}">다시 도전</button><button data-act="bossBack">보스 선택</button>`
         : '<button data-act="bossBack">포기</button>'}</div>`;
   }
-  return `${head}<div class="boss-list">${BOSSES.map(b => {
-    const rec = bossRec(b.id), eta = bossEta(b, r), ok = eta <= BOSS_LIMIT, weak = bossDefRate(b, r.ied) < 0.3;
-    return `<div class="row-item">
-      <div><b>${b.name}</b>${rec.kills ? ' <span class="tag">처치</span>' : ''}
-        <div class="muted small">HP ${fmtBig(b.hp)} · 방어율 ${b.def}% · 권장 전투력 ${fmtBig(b.cp)}</div>
-        <div class="small"><span class="${ok ? 'ok' : 'bad'}">${!r.power ? '전투력 없음' : ok ? `예상 ${fmtTime(eta)}` : '시간 초과 예상'}</span>${weak ? ' <span class="bad">방무 부족</span>' : ''}${rec.best != null ? ` · 최고 ${fmtTime(rec.best)}` : ''}${rec.tries ? ` · ${rec.kills}/${rec.tries}회 처치` : ''}</div>
+  const g = BOSS_GROUPS.find(x => x.key === M.bossGroup) || BOSS_GROUPS[0];
+  const b = g.diffs.find(x => x.id === M.bossDiff) || g.diffs[0];
+  const rec = bossRec(b.id), eta = bossEta(b, r), ok = eta <= BOSS_LIMIT, weak = bossDefRate(b, r.ied) < 0.3;
+  return `${head}<div class="boss-ui">
+    <div class="boss-side">${BOSS_GROUPS.map(x => `<button class="boss-tab ${x === g ? 'on' : ''}" data-act="bossGroup" data-key="${x.key}">
+      <span>${x.name}</span>${x.diffs.some(d => bossRec(d.id).kills) ? '<em>✔</em>' : ''}${imgHtml(x, 'boss-thumb')}</button>`).join('')}</div>
+    <div class="boss-stage">
+      <div class="boss-stage-top">
+        <div><div class="boss-title">${g.name}</div>
+          <div class="boss-spec">체력 ${fmtBig(b.hp)}<br>방어율 ${b.def}%<br>페이즈 ${b.phases}개<br>권장 전투력 ${fmtBig(b.cp)}</div></div>
+        <div class="boss-diffs"><div class="small">DIFFICULTY</div>${g.diffs.map(d => `<button class="boss-diff d-${BOSS_DIFF_KEY[d.diff]} ${d === b ? 'on' : ''}" data-act="bossDiff" data-id="${d.id}">${d.diff}${bossRec(d.id).kills ? ' ✔' : ''}</button>`).join('')}</div>
       </div>
-      <div class="btns"><button class="primary sm" data-act="bossFight" data-id="${b.id}">도전</button></div>
-    </div>`;
-  }).join('')}</div>
+      ${imgHtml(b, 'boss-art')}
+      <div class="boss-stage-foot">
+        <div class="boss-pred"><span class="${ok ? 'ok' : 'bad'}">${!r.power ? '전투력 없음' : ok ? `예상 처치 ${fmtTime(eta)}` : '시간 초과 예상'}</span>${weak ? ' <span class="bad">방무 부족</span>' : ''}
+          <div class="small">${rec.best != null ? `최고 ${fmtTime(rec.best)} · ` : ''}처치 ${rec.kills} / 도전 ${rec.tries}</div></div>
+        <button class="boss-go" data-act="bossFight" data-id="${b.id}">보스 도전 »</button>
+      </div>
+    </div>
+  </div>
   <p class="muted small">제한 시간 30분 · 데스카운트 ${BOSS_LIVES}개. 방어율 무시가 낮으면 데미지가 크게 줄어요. 기록은 캐릭터별로 저장돼요.</p>`;
 }
 
@@ -1934,13 +1955,15 @@ function renderPanel() {
       <div class="actions"><button data-act="hyperReset" ${used ? '' : 'disabled'}>초기화</button></div>
       <p class="muted small">Lv.140부터 레벨업마다 포인트를 받아요 (140~149: 3P, 10레벨마다 +1P). 최대 Lv.15.</p>`;
   }
-  el.innerHTML = `<div class="sheet">
+  el.innerHTML = `<div class="sheet ${M.panel === 'boss' ? 'boss-sheet' : ''}">
     <button class="x" data-act="close">✕</button>
     ${body}
     ${M.panel === 'boss' ? '' : `<div class="pw">전투력 기여 <b>${diffHtml(panelContrib(M.panel))}</b></div>`}
     ${M.msg ? `<div class="msg ${M.msgCls}">${M.msg}</div>` : ''}
     <p class="muted small">수치는 근사치예요.</p>
   </div>`;
+  const side = $('.boss-side');
+  if (side) side.scrollTop = M.bossScroll || 0;
 }
 
 // ===== 이벤트 =====
@@ -2059,6 +2082,8 @@ document.addEventListener('click', e => {
     case 'panel': M = { panel: b.dataset.panel, locks: [false, false, false], msg: '', msgCls: '' }; renderModal(); break;
     case 'bossFight': startBoss(b.dataset.id); break;
     case 'bossBack': if (M.fight) clearInterval(M.fight.timer); M.fight = null; M.msg = ''; renderModal(); break;
+    case 'bossGroup': M.bossScroll = $('.boss-side').scrollTop; M.bossGroup = b.dataset.key; M.bossDiff = null; renderModal(); break;
+    case 'bossDiff': M.bossScroll = $('.boss-side').scrollTop; M.bossDiff = b.dataset.id; renderModal(); break;
     case 'abilRoll': {
       const prev = S.abil.grade, g = rollAbil(M.locks);
       if (g == null) return;
