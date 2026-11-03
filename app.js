@@ -989,7 +989,9 @@ function useScroll(it, sid) {
   if (rnd() < sr.rate) {
     sr.apply(sc); sc.up++;
     // 방어구는 4번째 성공마다 공/마 +1 보너스
-    if (!['무기', '장갑', '펫장비'].includes(t.slot) && !ACC_SLOTS.includes(t.slot) && sc.up % 4 === 0) sc[cls.main === 'INT' ? 'mad' : 'pad'] += 1;
+    // 방어구 주문의 흔적 4번 성공마다 공/마 +1 (놀긍혼 등 다른 주문서는 해당 없음)
+    if (sid.startsWith('trace')) sc.trace = (sc.trace || 0) + 1;
+    if (sid.startsWith('trace') && !['무기', '장갑', '펫장비'].includes(t.slot) && !ACC_SLOTS.includes(t.slot) && sc.trace % 4 === 0) sc[cls.main === 'INT' ? 'mad' : 'pad'] += 1;
     return 'success';
   }
   sc.fail++; return 'fail';
@@ -1008,7 +1010,8 @@ function useTool(it, tool) {
 }
 
 // 놀긍혼 상승치 분포 (0~6)
-const CHAOS_W = { 0: 0.13, 1: 0.27, 2: 0.25, 3: 0.17, 4: 0.1, 5: 0.06, 6: 0.02 };
+// 놀긍혼 상승치 분포: +5 칸 없이 +4 다음이 +6 (출처: 놀긍작 시뮬레이터 확률표)
+const CHAOS_W = { 0: 0.1838, 1: 0.3301, 2: 0.2387, 3: 0.1387, 4: 0.0494, 6: 0.0593 };
 const chaosRoll = () => wpick(CHAOS_W);
 const cloneSc = sc => JSON.parse(JSON.stringify(sc));
 // 주문서 한 장 전후 차이 (주스탯 / 공or마)
@@ -1303,7 +1306,7 @@ function tabBody(it, t) {
         <button class="sm" data-act="tool" data-tool="white" ${sc.fail ? '' : 'disabled'}>순백의 주문서 (10%)</button>
         <button class="sm" data-act="tool" data-tool="innocent">이노센트 주문서 (50%)</button>
       </div>
-      <p class="muted small">실패하면 업그레이드 횟수가 1 줄어요. 방어구는 4번 성공할 때마다 ${ATT_NAME()} +1 보너스. 수치는 120제 이상 기준 근사치예요.</p>`;
+      <p class="muted small">실패하면 업그레이드 횟수가 1 줄어요. 방어구는 주문의 흔적 4번 성공마다 ${ATT_NAME()} +1 보너스. 수치는 120제 이상 기준 근사치예요.</p>`;
   }
   if (M.tab === 'sf') {
     const s = it.star, max = maxStarT(t);
