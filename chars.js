@@ -189,3 +189,6 @@ const CHAR_IMG = {
   "full": "chars/CH_AD_3_1-1.png"
  }
 };
+
+// 레테 (사용자 제공 이미지)
+CHAR_IMG["레테"] = { thumb: "chars/lethe-0.png", full: "chars/lethe-1.png" };
