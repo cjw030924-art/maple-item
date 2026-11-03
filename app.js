@@ -1081,7 +1081,7 @@ function startFlameAuto(type) {
     // 강환·영환은 바로 적용, 검환은 더 좋을 때만 AFTER
     if (type !== 'flameB' || flameBetter(it, res, it.flame || [])) it.flame = res;
     if (flameGoalMet(it, res)) { it.flame = res; A.done = true; stopFlameAuto(`목표 달성! ${fmt(A.tries)}회 만에 ${flameLabel(it, res)}`); return; }
-    if (A.tries >= 1000000) { stopFlameAuto('100만 회 동안 목표를 못 띄워서 멈췄어요.'); return; }
+    if (A.tries >= 10000000) { stopFlameAuto('1000만 회 동안 목표를 못 띄워서 멈췄어요.'); return; }
     const live = live$('#flameLive'); if (live) live.innerHTML = flameLiveHtml(A);
     const tip = live$('.tooltip'); if (tip) tip.outerHTML = tooltipHtml(it);
   };
@@ -1232,7 +1232,7 @@ function startAuto(type) {
     const met = goalMet(res, g);
     if (!CUBES[type].choose || met || res.grade > it[kind].grade) it[kind] = res;
     if (met) { A.done = true; stopAuto(`목표 달성! ${fmt(A.tries)}회 만에 성공`); return; }
-    if (A.tries >= 1000000) { stopAuto(`100만 회 동안 목표를 못 띄워서 멈췄어요.`); return; }
+    if (A.tries >= 10000000) { stopAuto(`1000만 회 동안 목표를 못 띄워서 멈췄어요.`); return; }
     const live = live$('#cubeLive'); if (live) live.innerHTML = liveHtml(A);
   };
   A.timer = setInterval(() => {
