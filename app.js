@@ -629,7 +629,7 @@ function renderSelect() {
         <div class="class-grid">
           ${CLASSES.filter(c => c.group === g.key).map(c => {
             const d = savedCount(c.name);
-            return `<button class="class-btn ${g.key}" data-act="pick" data-name="${c.name}">
+            return `<button class="class-btn ${g.key}" data-act="pick" data-name="${c.name}">${CHAR_IMG[c.name] ? `<img class="class-thumb" src="${CHAR_IMG[c.name].thumb}" alt="" loading="lazy">` : '<span class="class-thumb none"></span>'}
               <b>${c.name}</b><span>${c.main} · ${c.weapon}</span>${d && d.level ? `<em>Lv.${d.level} · 아이템 ${d.inv.length}개</em>` : ''}</button>`;
           }).join('')}
         </div>
@@ -644,6 +644,7 @@ function renderMain() {
   $('#app').innerHTML = `
   <header class="top">
     <div class="who">
+      ${CHAR_IMG[cls.name] ? `<img class="char-full" src="${CHAR_IMG[cls.name].full}" alt="${cls.name}">` : ''}
       <b class="cname">${cls.name}</b>
       <span class="lv">Lv.<b id="lvl">${S.level}</b></span>
       <span class="muted">${GROUPS.find(g => g.key === cls.group).name} · 주스탯 ${cls.main} · ${cls.weapon}</span>

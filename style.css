@@ -345,3 +345,9 @@ button.white { background: #e8e8f0; color: #1a1a22; }
 .tonic-cost { font-size: 11px; color: #7a5cb8; }
 .tonic-card .tonic-btn { padding: 2px 8px; font-size: 11px; }
 .tonic .muted.small { color: #c9b8f0; margin: 8px 0 0; }
+
+/* 직업 이미지 */
+.class-btn { position: relative; padding-left: 64px; min-height: 64px; justify-content: center; }
+.class-thumb { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); width: 48px; height: 48px; border-radius: 10px; object-fit: cover; background: #0e1017; }
+.class-thumb.none { display: block; }
+.char-full { height: 84px; width: auto; max-width: 150px; object-fit: contain; margin: -10px 0; filter: drop-shadow(0 2px 6px rgba(0,0,0,.5)); }
