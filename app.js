@@ -2100,7 +2100,7 @@ document.addEventListener('click', e => {
     case 'soulPotAuto': {
       const so = it.soul, p = so.pot, G = M.soulGoal, m0 = S.log.meso;
       let n = 0;
-      while (!(p.grade >= G.grade && soulAttSum(so) >= G.min) && n < 200000) { soulPotRoll(it); n++; }
+      while (!(p.grade >= G.grade && soulAttSum(so) >= G.min) && n < 1000000) { soulPotRoll(it); n++; }
       const ok = p.grade >= G.grade && soulAttSum(so) >= G.min;
       setMsg(ok ? `✨ ${fmt(n)}번 만에 목표 달성! (${fmtMeso(S.log.meso - m0)} 메소)` : `${fmt(n)}번 돌렸지만 목표에 못 미쳤어요.`, ok ? 'ok' : 'bad');
       refresh(); break;
